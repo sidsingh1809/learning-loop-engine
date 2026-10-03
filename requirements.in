@@ -1,0 +1,7 @@
+# Compatibility ceiling: Python 3.9.21. Lock transitive dependencies in requirements.txt.
+fastapi==0.128.8
+uvicorn==0.39.0
+SQLAlchemy==2.0.48
+alembic==1.16.5
+PyMySQL[rsa]==1.1.2
+pydantic-settings==2.11.0
