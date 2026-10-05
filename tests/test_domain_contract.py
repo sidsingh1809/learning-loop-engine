@@ -58,9 +58,10 @@ def test_domain_auth_and_openapi(client):
         assert client.get(route).status_code == 401
     schema = client.get("/openapi.json").json()
     routes = {path: methods for path, methods in schema["paths"].items() if "domain-versions" in path}
-    assert len(routes) == 6
-    for methods in routes.values():
-        assert "delete" not in methods
+    assert len(routes) == 10
+    for path, methods in routes.items():
+        if "prerequisites/{prerequisite_id}" not in path:
+            assert "delete" not in methods
         for operation in methods.values():
             assert operation["security"] == [{"APIKeyHeader": []}]
 

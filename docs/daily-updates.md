@@ -63,4 +63,18 @@ Prerequisite edges, publishing, learner state, diagnostics, planning and AI gene
 
 ## Next-session handoff
 
-Start Day 4 in `04-daily-plan.md`: add same-version prerequisite edges, reject self/cross-version/cyclic edges, validate complete drafts and publish immutable domain versions. Reuse the active Day 3 pilot above and the course-then-domain lock order. Preserve existing migrations, course records and draft content. Expand API/MySQL tests for publication and concurrent graph edits, and re-estimate after the milestone. Do not add learner or AI generation features before their planned dependencies.
+Start Day 5 in `04-daily-plan.md`: add pseudonymous learners, enrollments and permission-scoped learner state reads. Keep initial knowledge unknown until evidence or diagnostics establish it. Use the published Day 3/4 domain as a stable reference; enforce course/domain enrollment scope and deny one learner access to another learner's records. Retain the single-model-first direction for Days 12–13; planner, generator and AI calls remain later milestones.
+
+## Day 4 completed — October 3, 2026
+
+Time spent: developer time not reported; record separately.
+
+Implemented same-version prerequisite links, cycle detection, validation reports, publication and immutable published domain content. The API now has 17 domain operations. Draft links can be corrected by removing and recreating them. Publishing requires at least one competency and skill, skill coverage for every competency, valid classification/references and an acyclic graph. Independent skills remain valid. Publication status/timestamp commit atomically and repeated publication on an active course returns the same representation.
+
+Migration `0004_domain_publishing` adds prerequisite storage and `published_at` without changing migrations 0001–0003. Foreign keys reject either cross-version endpoint, and check constraints reject self-links and inconsistent publication metadata. Graph edits, validation and publishing use the existing course-then-domain lock order. Owning authors author/publish active-course drafts; metadata readers may inspect and validate retained versions. Cycles and immutable content are service invariants.
+
+Evidence: all 127 automated checks passed inside Python 3.9.21 against MySQL, with no skipped tests. Migration tests preserve Day 3 domain content across upgrade/downgrade/re-upgrade; earlier migration paths and Alembic schema comparison pass. Simultaneous opposing links, graph edits racing publication, and repeated concurrent publication were checked. The actual application migration preserved complete snapshots of six courses, three domains, three competencies and eleven skills.
+
+The live HTTP demonstration added four prerequisite links to the retained Day 3 pilot `DAY3-F744D0673FBD` and published domain `3288966b-a0cf-440b-8520-582f52cc88fa`. It verified self-link rejection (422), cycle rejection (409), valid prerequisite ordering (200), learner publish denial (403), author publish/read/retry (200), and published skill edit rejection (409). The API and application database are healthy locally. See `10-day-4.md` and `verification.md`.
+
+Estimate review: retain Day 20 as the engineering prototype target, with 16 remaining working sessions (48–96 hours using the existing assumption). This is not a measured time report or production commitment. Re-estimate after the first complete loop on Day 10. University-reviewed curriculum, identity details and provider selection remain unresolved. Learners, diagnostics, planning, generation and AI integrations remain planned; no real student data or provider calls were used.

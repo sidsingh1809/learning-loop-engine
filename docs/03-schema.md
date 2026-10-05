@@ -12,11 +12,20 @@ Course lifecycle adds `created_by VARCHAR(128) NOT NULL`, `updated_at DATETIME N
 
 ## Implemented in migration 0003
 
-- `domain_versions`: UUID ID, `course_id` FK, positive integer `version`, `status`, and UTC `created_at`. Unique `(course_id, version)`; API allocates numbers while holding the course lock. API-created versions start `draft`. The schema reserves `published` for Day 4; no publishing endpoint exists yet.
+- `domain_versions`: UUID ID, `course_id` FK, positive integer `version`, `status`, and UTC `created_at`. Unique `(course_id, version)`; API allocates numbers while holding the course lock. API-created versions start `draft`; Day 4 implements the reserved `published` transition.
 - `competencies`: UUID ID, `domain_version_id` FK, normalized `code VARCHAR(32)`, nonempty `statement TEXT`, UTC `created_at` and `updated_at`. Unique `(domain_version_id, code)` and `(id, domain_version_id)`.
 - `skills`: UUID ID, `domain_version_id` FK, `competency_id`, normalized code, title, description, `skill_kind`, `requires_automaticity`, and UTC creation/update timestamps. Unique `(domain_version_id, code)` and `(id, domain_version_id)`. A composite FK to `competencies(id, domain_version_id)` prevents cross-version assignment. Check constraints limit kind to `routine`/`non_routine`, automaticity to boolean values, and automaticity to routine skills.
 
 All three tables use `utf8mb4_unicode_ci`. Foreign keys retain referenced records; no cascading deletes or public deletion APIs exist. Course-owned draft authoring locks course then domain and rejects archived courses. Migration 0003 adds tables without changing existing course rows or earlier migrations. Its downgrade drops the three domain tables and loses domain content; downgrade verification is confined to the disposable test database.
+
+## Implemented in migration 0004
+
+- `domain_versions.published_at`: nullable UTC `DATETIME`. A check constraint requires null for drafts and non-null for published versions. Existing drafts are preserved. Any manually published legacy row gets `created_at` as a compatibility timestamp; this backfill is not evidence of earlier validation.
+- `skill_prerequisites`: UUID ID, `domain_version_id` FK, `skill_id`, `prerequisite_skill_id`, UTC `created_at`. An edge means `skill_id` requires `prerequisite_skill_id`. Unique `(domain_version_id, skill_id, prerequisite_skill_id)`. Two composite FKs to `skills(id, domain_version_id)` enforce same-version endpoints, and a check rejects self-links. The table uses the same UTF-8 collation as the other domain tables.
+
+Graph writes and publication lock course then domain. The service rejects cycles, validates nonempty competency/skill coverage and classifications, and commits publication status/timestamp together. All competency, skill and prerequisite mutations reject published domains. A draft prerequisite may be deleted; skills and published content retain their records. Cycles and immutability are service invariants, not SQL triggers.
+
+Migration 0004 retains earlier course/domain content and leaves migrations 0001–0003 unchanged. Its downgrade deletes all prerequisite links and publication timestamps while retaining domain status, competencies and skills; subsequent upgrade backfills any retained published status with a compatibility timestamp. This loses the original publication time and is not a supported application recovery path. Downgrade testing uses only the disposable database.
 
 ## Proposed next migrations
 
@@ -24,8 +33,7 @@ These tables are a design, not an implemented database. We will refine each with
 
 | Group | Tables and key fields | Integrity and indexes |
 |---|---|---|
-| Domain extensions | `domain_versions.published_at`; later `competencies.rubric_version_id` | Add validated publishing and rubric references to the existing Day 3 tables; published versions immutable |
-| Graph | `skill_prerequisites(domain_version_id, skill_id, prerequisite_skill_id)` | Composite FKs bind both nodes to same version; unique edge; no self-edge; service checks full graph cycles |
+| Domain extensions | `competencies.rubric_version_id` | Add reviewed rubric references to the existing domain tables |
 | Learners | `learners(id, external_subject, created_at)`; `enrollments(id, learner_id, course_id, domain_version_id, status)` | Unique external subject within configured university; enrollment binds course/version; unique learner/course active enrollment policy |
 | Scoring | `rubric_versions(id, competency_id, version, criteria_json, review_status)` | Immutable approved rubric; reference version in every scored attempt; resolve competency/rubric reference ordering in migration |
 | Catalog | `activity_types(id, code, evidence_tier, source_reference, review_status)`; `activity_variants(id, activity_type_id, version, config_json, evidence_tier)` | Tier may vary by variant; never infer every variation is established from format alone |

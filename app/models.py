@@ -37,6 +37,8 @@ class DomainVersion(Base):
         UniqueConstraint("course_id", "version", name="uq_domain_course_version"),
         CheckConstraint("version > 0", name="ck_domain_positive_version"),
         CheckConstraint("status IN ('draft', 'published')", name="ck_domain_status"),
+        CheckConstraint("(status = 'draft' AND published_at IS NULL) OR "
+                        "(status = 'published' AND published_at IS NOT NULL)", name="ck_domain_publication"),
         {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
     )
 
@@ -45,6 +47,8 @@ class DomainVersion(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class Competency(Base):
@@ -88,3 +92,22 @@ class Skill(Base):
     requires_automaticity: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+
+class SkillPrerequisite(Base):
+    __tablename__ = "skill_prerequisites"
+    __table_args__ = (
+        ForeignKeyConstraint(["skill_id", "domain_version_id"], ["skills.id", "skills.domain_version_id"],
+                             name="fk_prerequisite_skill_domain"),
+        ForeignKeyConstraint(["prerequisite_skill_id", "domain_version_id"], ["skills.id", "skills.domain_version_id"],
+                             name="fk_prerequisite_required_domain"),
+        UniqueConstraint("domain_version_id", "skill_id", "prerequisite_skill_id", name="uq_prerequisite_edge"),
+        CheckConstraint("skill_id <> prerequisite_skill_id", name="ck_prerequisite_not_self"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    domain_version_id: Mapped[str] = mapped_column(ForeignKey("domain_versions.id"), nullable=False)
+    skill_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    prerequisite_skill_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)

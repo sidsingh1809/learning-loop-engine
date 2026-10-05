@@ -78,6 +78,11 @@ class DomainVersionRead(CreatedRead):
     course_id: UUID
     version: int
     status: Literal["draft", "published"]
+    published_at: Optional[datetime] = None
+
+    @field_serializer("published_at")
+    def published_utc(self, value: Optional[datetime]) -> Optional[str]:
+        return None if value is None else value.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 class UpdatedRead(CreatedRead):
@@ -120,3 +125,42 @@ class SkillPage(BaseModel):
     items: list[SkillRead]
     limit: int
     offset: int
+
+
+class PrerequisiteCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # skill_id requires prerequisite_skill_id; arrows run prerequisite -> skill.
+    skill_id: UUID
+    prerequisite_skill_id: UUID
+
+    @model_validator(mode="after")
+    def reject_self_edge(self):
+        if self.skill_id == self.prerequisite_skill_id:
+            raise ValueError("A skill cannot require itself")
+        return self
+
+
+class PrerequisiteRead(CreatedRead):
+    domain_version_id: UUID
+    skill_id: UUID
+    prerequisite_skill_id: UUID
+
+
+class PrerequisitePage(BaseModel):
+    items: list[PrerequisiteRead]
+    limit: int
+    offset: int
+
+
+class DomainValidationIssue(BaseModel):
+    code: str
+    message: str
+    resource_ids: list[UUID]
+
+
+class DomainValidationRead(BaseModel):
+    domain_version_id: UUID
+    valid: bool
+    issues: list[DomainValidationIssue]
+    # Empty whenever validation fails. This order is structural, not a learning plan.
+    topological_skill_ids: list[UUID]

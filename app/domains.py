@@ -11,10 +11,12 @@ from app.database import get_session
 from app.domain_schemas import (
     CompetencyCreate, CompetencyPage, CompetencyRead, CompetencyUpdate,
     DomainVersionCreate, DomainVersionPage, DomainVersionRead,
+    DomainValidationRead, PrerequisiteCreate, PrerequisitePage, PrerequisiteRead,
     SkillCreate, SkillPage, SkillRead, SkillUpdate,
 )
 from app.identity import Principal
-from app.models import Competency, DomainVersion, Skill
+from app.models import Competency, Course, DomainVersion, Skill, SkillPrerequisite, utc_now
+from app.domain_graph import load_graph, topological_order, validate_domain
 from app.security import require_api_key, require_author
 
 router = APIRouter(
@@ -39,20 +41,23 @@ def active_owned_course(course_id, principal, session):
     return course
 
 
-def load_version(course_id, domain_version_id, session, principal=None):
+def load_version(course_id, domain_version_id, session, principal=None, draft_required=True, lock=False):
     if principal is not None:
         active_owned_course(course_id, principal, session)
+    elif lock:
+        if session.scalar(select(Course).where(Course.id == str(course_id)).with_for_update()) is None:
+            raise HTTPException(status_code=404, detail="Course not found")
     else:
         get_course(course_id, session)
     query = select(DomainVersion).where(
         DomainVersion.id == str(domain_version_id), DomainVersion.course_id == str(course_id),
     )
-    if principal is not None:
+    if principal is not None or lock:
         query = query.with_for_update()
     version = session.scalar(query)
     if version is None:
         raise HTTPException(status_code=404, detail="Domain version not found in this course")
-    if principal is not None and version.status != "draft":
+    if principal is not None and draft_required and version.status != "draft":
         raise HTTPException(status_code=409, detail="Only draft domains can be authored")
     return version
 
@@ -150,6 +155,86 @@ def update_competency(
     for name, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, name, value)
     return commit_resource(session, item)
+
+
+@router.post("/{domain_version_id}/prerequisites", response_model=PrerequisiteRead, status_code=201)
+def create_prerequisite(
+    course_id: UUID, domain_version_id: UUID, payload: PrerequisiteCreate, response: Response,
+    principal: Principal = Depends(require_author), session: Session = Depends(get_session),
+):
+    load_version(course_id, domain_version_id, session, principal)
+    load_child(Skill, payload.skill_id, domain_version_id, session)
+    load_child(Skill, payload.prerequisite_skill_id, domain_version_id, session)
+    skills, edges = load_graph(domain_version_id, session)
+    candidate = (str(payload.skill_id), str(payload.prerequisite_skill_id))
+    if candidate in edges:
+        raise HTTPException(status_code=409, detail="Prerequisite already exists in this version")
+    if topological_order(skills, [*edges, candidate]) is None:
+        raise HTTPException(status_code=409, detail="Prerequisite would create a cycle")
+    item = SkillPrerequisite(domain_version_id=str(domain_version_id), **payload.model_dump(mode="json"))
+    session.add(item)
+    commit_resource(session, item)
+    response.headers["Location"] = version_path(course_id, domain_version_id) + "/prerequisites/" + item.id
+    return item
+
+
+@router.get("/{domain_version_id}/prerequisites", response_model=PrerequisitePage)
+def list_prerequisites(
+    course_id: UUID, domain_version_id: UUID,
+    limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+):
+    load_version(course_id, domain_version_id, session)
+    items = session.scalars(select(SkillPrerequisite).where(SkillPrerequisite.domain_version_id == str(domain_version_id))
+                            .order_by(SkillPrerequisite.skill_id, SkillPrerequisite.prerequisite_skill_id)
+                            .limit(limit).offset(offset)).all()
+    return {"items": items, "limit": limit, "offset": offset}
+
+
+@router.get("/{domain_version_id}/prerequisites/{prerequisite_id}", response_model=PrerequisiteRead)
+def get_prerequisite(
+    course_id: UUID, domain_version_id: UUID, prerequisite_id: UUID, session: Session = Depends(get_session),
+):
+    load_version(course_id, domain_version_id, session)
+    return load_child(SkillPrerequisite, prerequisite_id, domain_version_id, session)
+
+
+@router.delete("/{domain_version_id}/prerequisites/{prerequisite_id}", status_code=204)
+def delete_prerequisite(
+    course_id: UUID, domain_version_id: UUID, prerequisite_id: UUID,
+    principal: Principal = Depends(require_author), session: Session = Depends(get_session),
+):
+    load_version(course_id, domain_version_id, session, principal)
+    item = load_child(SkillPrerequisite, prerequisite_id, domain_version_id, session)
+    session.delete(item)
+    session.commit()
+    return Response(status_code=204)
+
+
+@router.post("/{domain_version_id}/validate", response_model=DomainValidationRead)
+def validate_domain_version(
+    course_id: UUID, domain_version_id: UUID, payload: DomainVersionCreate,
+    session: Session = Depends(get_session),
+):
+    # Hold the same locks as writers for a coherent report. All metadata readers may validate.
+    load_version(course_id, domain_version_id, session, lock=True)
+    return validate_domain(domain_version_id, session)
+
+
+@router.post("/{domain_version_id}/publish", response_model=DomainVersionRead)
+def publish_domain_version(
+    course_id: UUID, domain_version_id: UUID, payload: DomainVersionCreate,
+    principal: Principal = Depends(require_author), session: Session = Depends(get_session),
+):
+    version = load_version(course_id, domain_version_id, session, principal, draft_required=False)
+    if version.status == "published":
+        return version
+    report = validate_domain(domain_version_id, session)
+    if not report["valid"]:
+        raise HTTPException(status_code=422, detail=report)
+    version.status = "published"
+    version.published_at = utc_now()
+    return commit_resource(session, version)
 
 
 @router.post("/{domain_version_id}/skills", response_model=SkillRead, status_code=201)

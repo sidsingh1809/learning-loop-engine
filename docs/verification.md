@@ -1,5 +1,27 @@
 # Verification log
 
+## Day 4 — October 3, 2026
+
+| Check | Actual result |
+|---|---|
+| Host contract suite | 103 passed; 24 MySQL tests deselected |
+| `docker compose --profile test run --build --rm tests` | 127 passed; no skipped tests; final run 2.96 seconds |
+| Migration lifecycle in disposable test database | Fresh upgrade/base downgrade; existing Day 1/2 course metadata and Day 3 draft/competency/skill content preserved through 0004 upgrade, downgrade to 0003 and re-upgrade; earlier downgrade paths and Alembic schema comparison passed |
+| Local application migration | Existing six courses, three domains, three competencies and eleven skills matched complete pre/post snapshots; migration head is `0004_domain_publishing` |
+| `docker compose up --build -d --wait api` | Migration completed; API and application database healthy |
+| `docker compose exec -T api python --version` | Python 3.9.21 |
+| `python3 scripts/demo_day4.py --course-id 902a24a1-efa5-4172-a261-527f89e03c63 --domain-version-id 3288966b-a0cf-440b-8520-582f52cc88fa` | Four prerequisite links created through HTTP; self-link/cycle rejected; graph validated; learner publish denied; author publish/read/retry passed; published skill edit rejected |
+
+The suite now covers same-version prerequisite CRUD (draft deletion only), pagination, missing and mismatched parents, self/duplicate/cyclic edge rejection, role and ownership denial, archived-course protection, incomplete publication with unchanged draft state, published content immutability, retained metadata reads/validation, and fresh empty revisions. Direct MySQL checks reject either foreign-version endpoint, duplicate links and self-links. Publication rechecks a deliberately corrupted cyclic draft seeded only in the disposable database. An iterative graph test validates 1,500 skills without recursion and checks deterministic ordering/multiple roots.
+
+Concurrent request checks cover opposing edges (one 201 and one 409), graph insertion racing publication (committed before publishing or rejected after), and three publication requests returning the same stored representation. These are correctness checks, not throughput/load measurements or a complete archive/edit concurrency matrix. Cycles and immutability are service invariants; direct operator SQL can bypass them.
+
+The first MySQL run passed 126 checks and exposed a test expectation mismatch: MySQL CHECK violations are reported by this driver as OperationalError (3819), while foreign-key violations use IntegrityError (1452). The test now checks each actual error code. The final complete suite passed all 127 checks.
+
+The live demonstration reused active course `DAY3-F744D0673FBD` (UUID `902a24a1-efa5-4172-a261-527f89e03c63`) and domain `3288966b-a0cf-440b-8520-582f52cc88fa`. Its retained competency and five skills now have the provisional chain VARIABLES → EXPRESSIONS → CONDITIONALS → LOOPS → DEBUGGING. The domain is published with a UTC timestamp and no longer editable. Prior course, competency and skill content remained unchanged. Credentials were not printed. The API and database are left running for inspection.
+
+No learner records, diagnostics, planner, generator, AI provider calls or real student data are implemented by this milestone. The Day 4 walkthrough and revised remaining-session estimate are in `10-day-4.md` and `04-daily-plan.md`. The original publication timestamp and graph links are lost by a Day 4 downgrade, so downgrade verification is confined to the disposable database.
+
 ## Day 3 — October 2, 2026
 
 | Check | Actual result |

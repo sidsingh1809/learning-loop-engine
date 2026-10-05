@@ -55,7 +55,7 @@ No score formula or evidence threshold is an approved university policy at this 
 | Resource | Representative endpoints | Intended milestone |
 |---|---|---|
 | Courses | POST/GET `/courses`, GET/PATCH `/courses/{id}` | Day 1 create/read; Day 2 edit/archive |
-| Domain | POST `/courses/{id}/domain-versions`, skills, prerequisites, validate/publish actions | Day 3 authoring implemented; Day 4 prerequisites/publishing planned |
+| Domain | POST `/courses/{id}/domain-versions`, skills, prerequisites, validate/publish actions | Day 3 authoring and Day 4 validated immutable publishing implemented |
 | Learners | POST `/learners`, POST `/enrollments`, GET `/learners/{id}/state` | Day 5 |
 | Catalogs | Activity types, component mappings, policy versions, review actions | Day 6 |
 | Plans | POST `/learners/{id}/loop-plans`, GET `/loop-plans/{id}` | Day 7 |

@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, select
 from sqlalchemy.exc import IntegrityError
 
 from app.models import Competency, DomainVersion, Skill
@@ -142,11 +142,9 @@ def test_database_rejects_cross_version_skill(mysql_client, mysql_engine, header
 
 
 def test_non_draft_domain_is_immutable(mysql_client, mysql_engine, headers, domain):
-    # No publishing API yet: seed only this protective-state fixture in the test database.
     _, version, path, competency, cp = domain
     _, sp = create(mysql_client, headers, path + "/skills", skill_payload(competency))
-    with mysql_engine.begin() as connection:
-        connection.execute(update(DomainVersion).where(DomainVersion.id == version["id"]).values(status="published"))
+    assert mysql_client.post(path + "/publish", headers=headers, json={}).status_code == 200
     for method, route, payload in [
         ("POST", path + "/competencies", {"code": "NEW", "statement": "New"}),
         ("POST", path + "/skills", skill_payload(competency, "NEW")),

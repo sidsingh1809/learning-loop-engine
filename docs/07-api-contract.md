@@ -1,6 +1,6 @@
 # API contract conventions
 
-Implemented contract, version 0.3.0. OpenAPI at `/openapi.json` is the route and schema reference. Application routes use `/api/v1`; health endpoints are unversioned and unauthenticated.
+Implemented contract, version 0.4.0. OpenAPI at `/openapi.json` is the route and schema reference. Application routes use `/api/v1`; health endpoints are unversioned and unauthenticated.
 
 ## Representation and validation
 
@@ -65,4 +65,25 @@ Codes are unique per domain version within each resource type; skill codes remai
 
 All four development roles may read this synthetic domain metadata, including drafts and archived-course domains. Writes require the author role and course ownership (403 otherwise), an active course, and a draft domain (409 otherwise). Missing or mismatched nested resources return 404. Authoring locks the course before the domain, serializing it with archival. Concurrent creation allocates distinct version numbers. Edits use last successful write semantics; no ETag or revision precondition exists yet.
 
-No domain deletion, cloning, prerequisite, or publishing endpoint is implemented. The schema reserves `published`, and authoring already rejects non-drafts; the publication transition and validation arrive on Day 4. Readiness checks all four implemented tables. Existing course endpoints retain their Day 2 behavior.
+No domain deletion or cloning endpoint is implemented. Day 4 adds the graph and publication operations below. Readiness checks all five implemented tables, including publication metadata. Existing course endpoints retain their Day 2 behavior.
+
+## Day 4 prerequisites, validation and publishing
+
+Under the same version path:
+
+| Relative route | Methods | Behavior |
+|---|---|---|
+| `/prerequisites` | POST, GET | Create a draft prerequisite link; list links |
+| `/prerequisites/{prerequisite_id}` | GET, DELETE | Read a link; remove a draft link |
+| `/validate` | POST | Read-only validation report; body `{}` |
+| `/publish` | POST | Validate and publish a complete draft; body `{}` |
+
+Prerequisite POST requires `skill_id` and `prerequisite_skill_id`: the first requires the second. Self-links return request-schema 422. Missing or foreign-version endpoints return 404. Duplicate edges and edges creating any cycle return 409. Creation returns 201 with a relative `Location`, UUID and UTC creation timestamp. Lists use standard pagination, ordered by `(skill_id, prerequisite_skill_id)`. Draft-link DELETE returns 204 with no body; a missing link returns 404. Link endpoints cannot be patched; remove and recreate the draft link to correct it.
+
+Validation requires at least one competency and skill, a skill for every competency, correct skill classifications and same-version references, and an acyclic graph. Multiple roots and independent skills are allowed; descriptions may be empty. It reads the full graph, independent of collection pagination. POST `/validate` returns 200 with `{domain_version_id, valid, issues, topological_skill_ids}`. Each issue has a stable `code`, explanatory `message`, and `resource_ids`. Supported codes are `no_competencies`, `no_skills`, `empty_competencies`, `invalid_skills`, and `invalid_graph`. Invalid reports contain an empty order. Valid reports order skills prerequisite-first with ties broken by code; this is not a personalized learning plan.
+
+All metadata readers may validate drafts or published versions, including on archived courses. Validation acquires course then domain locks to produce a coherent report without changing content. Publishing requires course ownership and an active course. Invalid publication returns 422 with the same report in `detail` and leaves the draft unchanged. Successful publication returns 200 with the persisted domain representation: `status: published` and server-controlled UTC `published_at`. Draft representations contain `published_at: null`. Status/timestamp commit atomically.
+
+Every competency/skill/link mutation rejects a published version with 409. Graph edits and publication use the same course-then-domain lock order as earlier authoring and archival. Opposing concurrent edges cannot both commit; an edit racing publication completes before validation or receives 409. A repeated publish on an active course returns the existing version and timestamp. After archival even repeated publish returns 409; reads and validation remain available. To revise content, create and author a new empty draft.
+
+MySQL constraints enforce same-version endpoints, unique links, no self-link, and publication status/timestamp consistency. Cycles and immutable content are enforced by API services; direct operator SQL can bypass those service invariants. Publication always revalidates draft content.

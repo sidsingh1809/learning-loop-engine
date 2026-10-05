@@ -33,7 +33,9 @@ On a three-hour day, spend roughly 15 minutes choosing the acceptance test, two 
 | 19 | Staging configuration, deployment, backup/restore, rollback and secret rotation runbooks | Restore synthetic data to a clean environment; deployment health and rollback rehearsal | Deployment readiness; actual deployment depends on chosen host |
 | 20 | End-to-end acceptance, documentation, integration handover, prioritized pilot backlog | Demo repeated from clean setup; test/evaluation report; unresolved gates listed | Prototype handover and next release decision |
 
-Days 1–3 are implemented and verified; see `verification.md` for measured results and `09-day-3.md` for the current walkthrough. Day 4 is the next implementation session. Later learning features remain planned.
+Days 1–4 are implemented and verified; see `verification.md` for measured results and `10-day-4.md` for the current walkthrough. Day 5 is the next implementation session. Later learning features remain planned.
+
+Day 4 estimate review (October 3, 2026): the planned graph/publication milestone is complete without pulling later learner or AI work forward. Keep the engineering prototype target at Day 20: 16 working sessions remain, approximately 48–96 hours at the existing 3–6 hours/session assumption. This is a planning estimate, not measured effort or a production release date. Re-estimate at Day 10 after the learner/evidence loop is verified; university identity, provider selection and review inputs remain unresolved.
 
 Product direction confirmed October 2, 2026: personalize each student's course experience from prior knowledge and subsequent evidence. Begin with one AI model to understand the entire process; add other models and compare them later. Days 3–4 supply the shared skill structure, Days 5–10 establish learner state and the adaptive loop, and Days 12–13 add the first model integration and durable execution. Provider/model selection remains open. See `01-scope.md` for the recorded decision.
 

@@ -2,13 +2,13 @@
 
 An API-first university learning system, developed in daily, testable increments. The target loop is: identify a learning gap → choose an instructional sequence → deliver activities → collect evidence → update the learner model → choose again.
 
-**Current milestone: Day 3 domain authoring.** Implemented: MySQL course lifecycle APIs, draft domain versions, competencies, classified skills, development roles and course ownership checks, health checks, OpenAPI documentation, migrations, and automated tests. The adaptive engine and activity generator are planned modules, not implemented features.
+**Current milestone: Day 4 prerequisite graphs and publishing.** Implemented: MySQL course lifecycle APIs, domain versions, competencies, classified skills, same-version prerequisite links, cycle detection, publish validation and immutable published versions, development roles and course ownership checks, health checks, OpenAPI documentation, migrations, and automated tests. The adaptive engine and activity generator are planned modules, not implemented features.
 
 ## Start here
 
 1. Read [the scope and unresolved decisions](docs/01-scope.md).
 2. Follow [the daily development plan](docs/04-daily-plan.md). It assumes one developer working 3–6 hours daily, with two hours already spent on Day 1.
-3. Run [the Day 3 walkthrough](docs/09-day-3.md); [Day 2](docs/06-day-2.md) covers course lifecycle and [Day 1](docs/05-day-1.md) covers the foundation.
+3. Run [the Day 4 walkthrough](docs/10-day-4.md); [Day 3](docs/09-day-3.md) covers domain authoring, [Day 2](docs/06-day-2.md) covers course lifecycle and [Day 1](docs/05-day-1.md) covers the foundation.
 4. Use [the progress log](docs/daily-updates.md) for daily reporting.
 
 ## Run locally
@@ -33,6 +33,7 @@ Use the `API_KEY` value from the local `.env` in Swagger's **Authorize** dialog,
 python3 scripts/demo_day1.py
 python3 scripts/demo_day2.py
 python3 scripts/demo_day3.py
+python3 scripts/demo_day4.py
 
 # Confirm exact runtime and inspect service state.
 docker compose exec api python --version
@@ -58,7 +59,7 @@ Host development is optional: install Python **3.9.21**, create `.venv`, install
 
 All course routes require `X-API-Key`. Course codes normalize to uppercase. Duplicate codes and edits after archival return 409; missing records return 404; invalid input returns 422; missing or invalid keys return 401; denied roles or ownership return 403. Database errors return a sanitized 503. Archived courses remain readable and retain their codes. No hard-delete route exists. See [API conventions](docs/07-api-contract.md) and [identity integration design](docs/08-identity-design.md).
 
-Day 3 also exposes 11 domain operations under `/api/v1/courses/{course_id}/domain-versions`: create/list/read versions; create/list/read/edit competencies and skills within a version. See [the Day 3 walkthrough](docs/09-day-3.md) for example requests. All development roles may read this synthetic domain metadata; only the course owner can author active-course drafts. Prerequisites and publishing are Day 4 work.
+There are 17 domain operations under `/api/v1/courses/{course_id}/domain-versions`: create/list/read versions; create/list/read/edit competencies and skills; create/list/read/remove draft prerequisite links; validate and publish a domain. See [the Day 3 walkthrough](docs/09-day-3.md) for authoring and [Day 4](docs/10-day-4.md) for graph and publication examples. All development roles may read and validate this synthetic domain metadata; only the course owner can author and publish active-course drafts. Publishing fixes the version's content and records a UTC timestamp.
 
 Every application operation will be available through APIs, including authoring, imports, learner state, generation, attempts, and reporting. Database migrations, backups, and infrastructure configuration remain operator tasks; they are not public application endpoints.
 
@@ -75,7 +76,7 @@ compose.yaml          Local app and separate disposable test database
 requirements*.txt     Pinned runtime and test dependencies
 ```
 
-See [architecture](docs/02-architecture.md) and [schema design](docs/03-schema.md) for the intended system. The implemented tables are `courses`, `domain_versions`, `competencies`, and `skills`.
+See [architecture](docs/02-architecture.md) and [schema design](docs/03-schema.md) for the intended system. The implemented tables are `courses`, `domain_versions`, `competencies`, `skills`, and `skill_prerequisites`.
 
 ## Engineering constraints
 

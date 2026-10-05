@@ -20,8 +20,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Learning Loop Engine API",
-    version="0.3.0",
-    description="Day 3 draft domain versions, competencies and skills. Learning loop modules are planned.",
+    version="0.4.0",
+    description="Day 4 prerequisite graphs and immutable published domains. Learning loop modules are planned.",
     lifespan=lifespan,
 )
 app.include_router(courses_router, prefix="/api/v1")
@@ -43,7 +43,8 @@ def live():
 def ready(session: Session = Depends(get_session)):
     # Query the migrated table: a bare SELECT 1 would hide a missing migration.
     session.execute(text("SELECT id, created_by, updated_at, archived_at FROM courses LIMIT 1"))
-    session.execute(text("SELECT id, course_id, version, status FROM domain_versions LIMIT 1"))
+    session.execute(text("SELECT id, course_id, version, status, published_at FROM domain_versions LIMIT 1"))
     session.execute(text("SELECT id, domain_version_id, code, statement FROM competencies LIMIT 1"))
     session.execute(text("SELECT id, domain_version_id, competency_id, skill_kind, requires_automaticity FROM skills LIMIT 1"))
+    session.execute(text("SELECT id, domain_version_id, skill_id, prerequisite_skill_id FROM skill_prerequisites LIMIT 1"))
     return {"status": "ready"}
