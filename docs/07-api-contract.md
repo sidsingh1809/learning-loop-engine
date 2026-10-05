@@ -1,6 +1,6 @@
 # API contract conventions
 
-Implemented contract, version 0.4.0. OpenAPI at `/openapi.json` is the route and schema reference. Application routes use `/api/v1`; health endpoints are unversioned and unauthenticated.
+Implemented contract, version 0.5.0. OpenAPI at `/openapi.json` is the route and schema reference. Application routes use `/api/v1`; health endpoints are unversioned and unauthenticated.
 
 ## Representation and validation
 
@@ -65,7 +65,7 @@ Codes are unique per domain version within each resource type; skill codes remai
 
 All four development roles may read this synthetic domain metadata, including drafts and archived-course domains. Writes require the author role and course ownership (403 otherwise), an active course, and a draft domain (409 otherwise). Missing or mismatched nested resources return 404. Authoring locks the course before the domain, serializing it with archival. Concurrent creation allocates distinct version numbers. Edits use last successful write semantics; no ETag or revision precondition exists yet.
 
-No domain deletion or cloning endpoint is implemented. Day 4 adds the graph and publication operations below. Readiness checks all five implemented tables, including publication metadata. Existing course endpoints retain their Day 2 behavior.
+No domain deletion or cloning endpoint is implemented. Day 4 adds the graph and publication operations below. Readiness checks all eight implemented tables, including publication and learner metadata. Existing course endpoints retain their Day 2 behavior.
 
 ## Day 4 prerequisites, validation and publishing
 
@@ -87,3 +87,22 @@ All metadata readers may validate drafts or published versions, including on arc
 Every competency/skill/link mutation rejects a published version with 409. Graph edits and publication use the same course-then-domain lock order as earlier authoring and archival. Opposing concurrent edges cannot both commit; an edit racing publication completes before validation or receives 409. A repeated publish on an active course returns the existing version and timestamp. After archival even repeated publish returns 409; reads and validation remain available. To revise content, create and author a new empty draft.
 
 MySQL constraints enforce same-version endpoints, unique links, no self-link, and publication status/timestamp consistency. Cycles and immutable content are enforced by API services; direct operator SQL can bypass those service invariants. Publication always revalidates draft content.
+
+## Day 5 learners, enrollments and state
+
+All routes require the learner role. Non-learner roles receive 403 before object lookup. Every requested learner is resolved against the authenticated principal subject; another learner's UUID returns the same 404 as a missing learner. Enrollment lookup additionally checks its learner parent. Spoofed subject, role or learner headers never establish access. Authors do not gain access to learners through course ownership; instructor assignments and service grants remain unimplemented.
+
+| Route under `/api/v1` | Method | Behavior |
+|---|---|---|
+| `/learners` | POST | Body `{}`; register authenticated principal only |
+| `/learners/{learner_id}` | GET | Own pseudonymous UUID and UTC creation time |
+| `/learners/{learner_id}/enrollments` | POST | Body `{course_id, domain_version_id}` |
+| `/learners/{learner_id}/enrollments` | GET | Own enrollments, ordered by `(created_at, id)` |
+| `/learners/{learner_id}/enrollments/{enrollment_id}` | GET | Enrollment belonging to this learner |
+| `/learners/{learner_id}/enrollments/{enrollment_id}/state` | GET | Skill states for this enrollment, ordered by skill code |
+
+First registration/enrollment returns 201 with Location; retries return 200 with the same persisted representation and Location. Registration accepts no identity fields. Enrollment requires an active course and a published version belonging to it (409 for archived/draft, 404 for missing/mismatched parents). One retained enrollment per learner/course is allowed; requesting a different published version returns 409. Enrollment version and status cannot be changed. After course archival existing records remain readable, but enrollment POST, including repeats, returns 409.
+
+Enrollment creation commits its record and all initial skill states together. Each state contains `skill_id`, `domain_version_id`, `band: unknown`, `evidence_count: 0`, `revision: 0`, and UTC `updated_at`. The timestamp records initial persistence, not learning evidence. Unknown does not assert low proficiency. Retrying enrollment or reading state never resets or adds states. No client score, proficiency or state-update route exists. Evidence-backed changes come in Days 9–10.
+
+Enrollment lists follow standard `{items, limit, offset}` pagination. State reads return `{enrollment_id, domain_version_id, items, limit, offset}`, default limit 20 and maximum 100. There is no learner directory or global enrollment list. All reads retain the standard sanitized database-error response.

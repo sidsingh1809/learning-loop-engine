@@ -35,6 +35,7 @@ class DomainVersion(Base):
     __tablename__ = "domain_versions"
     __table_args__ = (
         UniqueConstraint("course_id", "version", name="uq_domain_course_version"),
+        UniqueConstraint("id", "course_id", name="uq_domain_id_course"),
         CheckConstraint("version > 0", name="ck_domain_positive_version"),
         CheckConstraint("status IN ('draft', 'published')", name="ck_domain_status"),
         CheckConstraint("(status = 'draft' AND published_at IS NULL) OR "
@@ -111,3 +112,52 @@ class SkillPrerequisite(Base):
     skill_id: Mapped[str] = mapped_column(String(36), nullable=False)
     prerequisite_skill_id: Mapped[str] = mapped_column(String(36), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+
+class Learner(Base):
+    __tablename__ = "learners"
+    __table_args__ = {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"}
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    # Internal development identity mapping; never exposed in learner responses.
+    principal_subject: Mapped[str] = mapped_column(String(128, collation="utf8mb4_bin"), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+
+class Enrollment(Base):
+    __tablename__ = "enrollments"
+    __table_args__ = (
+        ForeignKeyConstraint(["domain_version_id", "course_id"], ["domain_versions.id", "domain_versions.course_id"],
+                             name="fk_enrollment_domain_course"),
+        UniqueConstraint("learner_id", "course_id", name="uq_enrollment_learner_course"),
+        UniqueConstraint("id", "domain_version_id", name="uq_enrollment_id_domain"),
+        CheckConstraint("status = 'active'", name="ck_enrollment_status"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    learner_id: Mapped[str] = mapped_column(ForeignKey("learners.id"), nullable=False)
+    course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"), nullable=False)
+    domain_version_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+
+class LearnerSkillState(Base):
+    __tablename__ = "learner_skill_states"
+    __table_args__ = (
+        ForeignKeyConstraint(["enrollment_id", "domain_version_id"], ["enrollments.id", "enrollments.domain_version_id"],
+                             name="fk_state_enrollment_domain"),
+        ForeignKeyConstraint(["skill_id", "domain_version_id"], ["skills.id", "skills.domain_version_id"],
+                             name="fk_state_skill_domain"),
+        CheckConstraint("band = 'unknown' AND evidence_count = 0 AND revision = 0", name="ck_state_initial_unknown"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+
+    enrollment_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    skill_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    domain_version_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    band: Mapped[str] = mapped_column(String(16), nullable=False, default="unknown")
+    evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)

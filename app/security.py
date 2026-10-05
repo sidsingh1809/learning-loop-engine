@@ -31,3 +31,9 @@ def require_author(principal: Principal = Depends(require_api_key)) -> Principal
     if Role.author not in principal.roles:
         raise HTTPException(status_code=403, detail="Author role required")
     return principal
+
+
+def require_learner(principal: Principal = Depends(require_api_key)) -> Principal:
+    if Role.learner not in principal.roles:
+        raise HTTPException(status_code=403, detail="Learner role required")
+    return principal

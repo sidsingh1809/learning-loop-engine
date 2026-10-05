@@ -1,5 +1,25 @@
 # Verification log
 
+## Day 5 — October 5, 2026
+
+| Check | Actual result |
+|---|---|
+| Host contract suite | 126 passed; supplemental host-only checks |
+| `docker compose --profile test run --build --rm tests` | 159 passed; no skipped tests; final run 4.54 seconds |
+| Migration lifecycle in disposable test database | Fresh upgrade/base downgrade; earlier migration paths; 0005 downgrade to 0004/re-upgrade with full retained course/domain snapshots; Alembic schema comparison passed |
+| Live runtime and learner storage | Python 3.9.21; head `0005_learners`; two learners, two enrollments, twelve initial state rows |
+| Local application migration | Full pre/post snapshots matched for six courses, four domains, four competencies, thirteen skills and five prerequisite links, including publication timestamps |
+| `docker compose up --build -d --wait api` | Migration completed; application database and API healthy |
+| `python3 scripts/demo_day5.py --course-id 902a24a1-efa5-4172-a261-527f89e03c63 --domain-version-id 3288966b-a0cf-440b-8520-582f52cc88fa` | Two learners/enrollments created through HTTP; six unknown/zero-evidence skills each; own reads/retries passed; mutual record access and cross-learner enrollment denied (404); author state access denied (403) |
+
+The suite adds learner authentication and role checks, forbidden identity/proficiency fields, no write APIs for state, pseudonymous responses, ignored spoofing headers, case-sensitive identity uniqueness, mutual object isolation, nested enrollment-parent isolation, pagination/missing resources, course/domain mismatch, draft/archived enrollment rejection, single-course version conflicts, stable retries and retained reads after course archival. Direct MySQL checks reject duplicate learner/course enrollment and either cross-version state boundary. A failed state insert verifies that neither enrollment nor partial state commits. Concurrent checks verify three registrations and three enrollments produce one record each, with one 201 and two 200 responses. Multi-role author/learner access still requires learner ownership.
+
+The first MySQL run passed 156 checks and exposed a repeatable-read snapshot issue in concurrent enrollment: the initial learner read opened an older snapshot, causing the later non-locking enrollment lookup to miss a newly committed row. The enrollment lookup now uses a locking read inside the shared course/domain lock order. Final review also added a regression that publishes an extra skill after enrollment opens its identity snapshot: the skill lookup now uses a current locking read and initializes every published skill. The final suite passed all 159 checks. These concurrent checks establish targeted correctness, not a load/throughput claim.
+
+The live demo reused the existing published pilot rather than rewriting its graph. It created learners `5b6b5593-48a7-453e-8b28-e601773f94ea` and `3dace22d-3366-434b-87e8-cd3e88f15f82`, each with an enrollment bound to domain `3288966b-a0cf-440b-8520-582f52cc88fa`. The pilot currently has six skills; all twelve state rows start unknown, with evidence count and revision zero. This differs from the five-skill automated fixture because the retained pilot already had additional authored content before this session. All pre-existing application records matched their complete snapshots after migration. Existing credentials were preserved; one missing synthetic learner credential was added without printing keys. The API and database remain running locally.
+
+University identity, instructor assignments and integration grants remain planned. No real student data, diagnostic, evidence scoring, planner, generator or AI provider calls were used. Unknown state does not assert low proficiency. State updates require the later evidence migration/contract; Day 5 downgrade destroys learner/enrollment/state data and is tested only in the disposable database.
+
 ## Day 4 — October 3, 2026
 
 | Check | Actual result |

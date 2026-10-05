@@ -10,10 +10,12 @@ Keys are compared in constant time per candidate and stored as secret-valued con
 |---|---|---|
 | Author | Read registry and domain metadata; create courses; edit/archive own courses; author own-course draft domains | Activity content; publishing under review policy |
 | Instructor | Read registry and domain metadata | Assigned enrollments, review eligible constructed responses |
-| Learner | Read registry and domain metadata | Own enrollments, plans, attempts and state only |
+| Learner | Read registry/domain metadata; register self; create/read own enrollments and read own unknown state | Own plans, attempts and evidence-backed state updates |
 | Integration | Read registry and domain metadata | Explicit service scopes and course/enrollment grants |
 
-Archived course and domain metadata remains readable. Domain mutations require an active course owned by the author and a draft domain; IDs cannot cross course/version boundaries. Archival does not erase records or future evidence. No student data, reviewer authority, administrator bypass, ownership transfer or enrollment permissions exist yet.
+Archived course and domain metadata remains readable. Domain mutations require an active course owned by the author and a draft domain; IDs cannot cross course/version boundaries. Archival does not erase retained records. Day 5 adds synthetic learner data and self-enrollment permissions. No reviewer authority, administrator bypass, ownership transfer, instructor assignments or integration learner grants exist yet.
+
+Day 5 registration derives an internal, case-sensitive subject mapping from the authenticated principal and returns a random learner UUID. Bodies cannot choose that subject or provide names/emails. This is pseudonymization, not anonymization: operators can still link the stored subject to the principal. Learners must own the requested UUID; sensitive missing/unauthorized learner and enrollment resources return 404. A learner cannot read or enroll another learner, including by placing another enrollment ID beneath their own learner path. Additional roles do not bypass ownership. A principal with learner and author roles may access their own learner records only.
 
 ## University adapter boundary
 
@@ -25,12 +27,12 @@ Map the verified `(issuer, subject)` pair to a stable internal principal ID rath
 
 Before real identities replace development subjects, migrate course ownership through a reviewed mapping. Do not silently make a university author own all `dev-author` courses or leave these synthetic records accessible by default.
 
-## Resource checks before Day 5
+## Resource checks and remaining identity work
 
 - Domain authoring inherits course ownership. Role alone never grants all-course mutation.
-- Learner routes derive the learner identity from the authenticated principal. Resolve requested enrollment and learner records against that identity.
+- Implemented Day 5: learner routes derive identity from the authenticated principal and scope both learner and enrollment lookup to it.
 - Instructor access requires an explicit assignment to the relevant course/enrollment; an instructor role alone is insufficient.
 - Integration clients need explicit operation scopes and resource grants; they cannot impersonate learners using request headers.
-- Add cross-learner, cross-instructor and cross-course negative tests before introducing real learner data. Decide whether sensitive unauthorized records should return 404 to avoid existence disclosure.
+- Day 5 tests verify mutual learner denial, case-sensitive identity uniqueness, mismatched learner/enrollment and course/version parents, denied author/instructor/integration access and ignored spoofing headers. Instructor-assignment isolation still requires its own tests when those grants are introduced. Sensitive unauthorized learner/enrollment reads return 404.
 
 University inputs still needed: identity provider and discovery details; access-token format, issuer and audience; approved role claims; service-client provisioning; instructor assignment source; identity mapping and retention policy; operational owners for key rotation and access revocation. These inputs do not block the synthetic course milestone.

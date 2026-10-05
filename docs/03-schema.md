@@ -27,6 +27,16 @@ Graph writes and publication lock course then domain. The service rejects cycles
 
 Migration 0004 retains earlier course/domain content and leaves migrations 0001–0003 unchanged. Its downgrade deletes all prerequisite links and publication timestamps while retaining domain status, competencies and skills; subsequent upgrade backfills any retained published status with a compatibility timestamp. This loses the original publication time and is not a supported application recovery path. Downgrade testing uses only the disposable database.
 
+## Implemented in migration 0005
+
+- `learners`: random UUID, unique `principal_subject VARCHAR(128)` internal development identity mapping, UTC `created_at`. Subject comparison uses `utf8mb4_bin` so case-distinct authenticated subjects remain separate. Responses expose UUID and creation time only; no name, email, university ID or subject is accepted in the body. The subject mapping is still linkable identity data and requires a reviewed `(issuer, subject)` migration before university identities are enabled.
+- `enrollments`: UUID, learner/course FKs, `domain_version_id`, server-controlled `active` status and UTC creation time. Unique `(learner_id, course_id)` permits one retained enrollment per course in this milestone. A new unique key on `domain_versions(id, course_id)` and composite FK enforce the enrollment's course/version boundary. Unique `(id, domain_version_id)` supports state integrity. No version transfer, withdrawal or re-enrollment lifecycle exists yet.
+- `learner_skill_states`: composite primary key `(enrollment_id, skill_id)`, `domain_version_id`, `band`, `evidence_count`, `revision`, UTC `updated_at`. Composite FKs bind both enrollment and skill to the same domain. Enrollment inserts every initial skill row transactionally. Day 5's check allows only `unknown`, zero evidence and revision zero; a later evidence-update migration must deliberately replace this check alongside its scoring/update contract. `updated_at` initially records creation, not a demonstrated learning event.
+
+All new tables retain the existing UTF-8 collation except the case-sensitive identity mapping column. Foreign keys retain referenced records; there are no cascading deletes or learner deletion APIs. API enrollment checks active course and published version while locking course then domain. Its existing-enrollment and initial-skill lookups are also locking reads to see the latest committed rows under MySQL repeatable-read isolation. Published-only enrollment, authorization and complete initial skill coverage are service invariants.
+
+Migration 0005 preserves existing course, domain, competency, skill, prerequisite and publication data; migrations 0001–0004 are unchanged. Downgrade drops all learner/enrollment/state records and the new domain key. It is destructive to Day 5 data and verified only in the disposable test database.
+
 ## Proposed next migrations
 
 These tables are a design, not an implemented database. We will refine each with its endpoint and tests instead of installing an unvalidated full schema at once.
@@ -34,12 +44,12 @@ These tables are a design, not an implemented database. We will refine each with
 | Group | Tables and key fields | Integrity and indexes |
 |---|---|---|
 | Domain extensions | `competencies.rubric_version_id` | Add reviewed rubric references to the existing domain tables |
-| Learners | `learners(id, external_subject, created_at)`; `enrollments(id, learner_id, course_id, domain_version_id, status)` | Unique external subject within configured university; enrollment binds course/version; unique learner/course active enrollment policy |
+| Learner lifecycle extensions | Institution-scoped verified identity mapping; enrollment transitions and domain transfers | Explicit university mapping/retention policy; preserve evidence and version boundaries |
 | Scoring | `rubric_versions(id, competency_id, version, criteria_json, review_status)` | Immutable approved rubric; reference version in every scored attempt; resolve competency/rubric reference ordering in migration |
 | Catalog | `activity_types(id, code, evidence_tier, source_reference, review_status)`; `activity_variants(id, activity_type_id, version, config_json, evidence_tier)` | Tier may vary by variant; never infer every variation is established from format alone |
 | Catalog composition | `component_activity_mappings(component, activity_variant_id)`; `experience_patterns(id, version, steps_json, review_status)` | Four 4C/ID components; validated step schemas and approved variants |
 | Policy | `policy_versions(id, category, version, rules_json, references_json, review_status)` | Categories: learning science, safety/ethics, decision, mastery, spacing; immutable published versions |
-| Current learner state | `learner_skill_states(learner_id, domain_version_id, skill_id, band, evidence_count, revision, updated_at)` | Composite PK; same-version skill FK; unknown distinct from low band; revision supports optimistic concurrency |
+| Learner state updates | Extend implemented enrollment-scoped states with reviewed bands, evidence provenance and update history | Replace initial-only check with the evidence transaction contract; preserve unknown distinct from low band; revision supports concurrency |
 | Loop plans | `loop_plans(id, enrollment_id, domain_version_id, focus_skill_id, policy_version_id, status, rationale_json, created_at)` | Same-version skill FK; retain model-state revision and policy IDs used for decision |
 | Sequence | `loop_steps(id, loop_plan_id, position, component, activity_variant_id, support_level, estimated_minutes, context_key)` | Unique plan/position; positive estimated duration; explicit connections back to whole task |
 | Activities | `activities(id, loop_step_id, version, content_json, rubric_version_id, generation_job_id, review_status, content_hash)`; `activity_skills(activity_id, skill_id, evidence_role)` | Frozen delivered activity version; map multi-skill whole tasks; candidate and approved states distinct |

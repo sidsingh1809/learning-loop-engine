@@ -12,10 +12,11 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import get_engine, get_session
 from app.main import app
-from app.models import Competency, Course, DomainVersion, Skill, SkillPrerequisite
+from app.models import Competency, Course, DomainVersion, Enrollment, Learner, LearnerSkillState, Skill, SkillPrerequisite
 
 TEST_API_KEY = "synthetic-test-key-32-characters-long"
 ROLE_KEYS = {role: "synthetic-" + role + "-key-32-characters-long" for role in ["instructor", "learner", "integration", "author"]}
+SECOND_LEARNER_KEY = "synthetic-second-learner-key-32-characters-long"
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def client(monkeypatch):
     monkeypatch.setenv("DEV_PRINCIPALS", json.dumps([
         {"subject": "other-" + role, "roles": [role], "api_key": key}
         for role, key in ROLE_KEYS.items()
-    ]))
+    ] + [{"subject": "second-learner", "roles": ["learner"], "api_key": SECOND_LEARNER_KEY}]))
     # Does not connect for unit tests. Integration tests override get_session.
     monkeypatch.setenv("DATABASE_URL", "mysql+pymysql://test:test@127.0.0.1/learning_loop_test")
     get_settings.cache_clear()
@@ -41,7 +42,8 @@ def headers():
 
 @pytest.fixture
 def role_headers():
-    return {role: {"X-API-Key": key} for role, key in ROLE_KEYS.items()}
+    return {**{role: {"X-API-Key": key} for role, key in ROLE_KEYS.items()},
+            "learner2": {"X-API-Key": SECOND_LEARNER_KEY}}
 
 
 # Shared disposable MySQL fixture; never connects to the application database.
@@ -113,6 +115,17 @@ def mysql_engine():
             else:
                 command.upgrade(config, target)
         command.check(config)
+        # Day 5 leaves the complete Day 4 schema content intact through downgrade/re-upgrade.
+        with get_engine().connect() as connection:
+            before_day5 = {table: connection.execute(text("SELECT * FROM " + table + " ORDER BY id")).mappings().all()
+                           for table in ("courses", "domain_versions", "competencies", "skills", "skill_prerequisites")}
+        command.downgrade(config, "0004_domain_publishing")
+        assert not {"learners", "enrollments", "learner_skill_states"} & set(inspect(get_engine()).get_table_names())
+        command.upgrade(config, "head")
+        with get_engine().connect() as connection:
+            for table, expected in before_day5.items():
+                assert connection.execute(text("SELECT * FROM " + table + " ORDER BY id")).mappings().all() == expected
+        command.check(config)
         with get_engine().connect() as connection:
             assert connection.execute(text("SELECT * FROM courses ORDER BY code")).mappings().all() == before_day3
         command.downgrade(config, "0002_course_lifecycle")
@@ -133,7 +146,7 @@ def mysql_engine():
         command.upgrade(config, "head")
         command.check(config)
         with get_engine().begin() as connection:
-            for model in (SkillPrerequisite, Skill, Competency, DomainVersion, Course):
+            for model in (LearnerSkillState, Enrollment, Learner, SkillPrerequisite, Skill, Competency, DomainVersion, Course):
                 connection.execute(delete(model))
         get_engine().dispose()
         get_engine.cache_clear()
@@ -151,5 +164,5 @@ def mysql_client(mysql_engine, client):
     app.dependency_overrides[get_session] = session_override
     yield client
     with mysql_engine.begin() as connection:
-        for model in (SkillPrerequisite, Skill, Competency, DomainVersion, Course):
+        for model in (LearnerSkillState, Enrollment, Learner, SkillPrerequisite, Skill, Competency, DomainVersion, Course):
             connection.execute(delete(model))

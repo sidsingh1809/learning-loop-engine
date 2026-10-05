@@ -61,13 +61,13 @@ The live HTTP demo created active course `DAY3-F744D0673FBD` (UUID `902a24a1-efa
 
 Prerequisite edges, publishing, learner state, diagnostics, planning and AI generation remain planned. The single-model-first direction is unchanged; no provider calls or real student data were used.
 
-## Next-session handoff
+## Day 4 handoff (historical)
 
 Start Day 5 in `04-daily-plan.md`: add pseudonymous learners, enrollments and permission-scoped learner state reads. Keep initial knowledge unknown until evidence or diagnostics establish it. Use the published Day 3/4 domain as a stable reference; enforce course/domain enrollment scope and deny one learner access to another learner's records. Retain the single-model-first direction for Days 12–13; planner, generator and AI calls remain later milestones.
 
 ## Day 4 completed — October 3, 2026
 
-Time spent: developer time not reported; record separately.
+Time spent: developer time not reported; record separately. - 4 hours
 
 Implemented same-version prerequisite links, cycle detection, validation reports, publication and immutable published domain content. The API now has 17 domain operations. Draft links can be corrected by removing and recreating them. Publishing requires at least one competency and skill, skill coverage for every competency, valid classification/references and an acyclic graph. Independent skills remain valid. Publication status/timestamp commit atomically and repeated publication on an active course returns the same representation.
 
@@ -78,3 +78,23 @@ Evidence: all 127 automated checks passed inside Python 3.9.21 against MySQL, wi
 The live HTTP demonstration added four prerequisite links to the retained Day 3 pilot `DAY3-F744D0673FBD` and published domain `3288966b-a0cf-440b-8520-582f52cc88fa`. It verified self-link rejection (422), cycle rejection (409), valid prerequisite ordering (200), learner publish denial (403), author publish/read/retry (200), and published skill edit rejection (409). The API and application database are healthy locally. See `10-day-4.md` and `verification.md`.
 
 Estimate review: retain Day 20 as the engineering prototype target, with 16 remaining working sessions (48–96 hours using the existing assumption). This is not a measured time report or production commitment. Re-estimate after the first complete loop on Day 10. University-reviewed curriculum, identity details and provider selection remain unresolved. Learners, diagnostics, planning, generation and AI integrations remain planned; no real student data or provider calls were used.
+
+## Day 5 completed — October 5, 2026
+
+Time spent: developer time not reported; record separately. - 4 hours
+
+Implemented pseudonymous learners, self-enrollment in a published course version and permission-scoped learner state reads through six API operations. Registration derives identity from the authenticated principal and returns only a random learner UUID and creation time. Learners cannot provide their identity, proficiency or authoritative score in a request. Each enrollment initializes all skills as unknown, with no evidence and revision zero; this does not imply low proficiency.
+
+Migration `0005_learners` adds learner, enrollment and skill-state tables with course/version and state/version composite foreign keys. Migrations 0001–0004 remain unchanged. Enrollment and its states commit atomically, and repeated/concurrent registration or enrollment returns the existing records. The current lifecycle permits one retained enrollment per learner/course; version transfer, withdrawal and instructor assignment remain future work.
+
+Learners can read only their own profile, enrollment list, enrollment and state. Requests for another learner or a foreign enrollment return 404, including spoofed identity headers and a foreign enrollment beneath the caller's own path. Author, instructor and integration roles have no learner-data grant. Multi-role principals still require ownership. Archived-course records remain readable but new enrollment is blocked.
+
+Evidence: all 159 checks passed inside Python 3.9.21 against MySQL, with no skips. Tests include mutual learner isolation, role/parent denial, cross-version database constraints, rollback on state-insert failure, stable concurrent retries and migration lifecycle/schema comparison. Full local pre/post snapshots matched six courses, four domains, four competencies, thirteen skills and five prerequisite links. A concurrency failure discovered in the first run was fixed with a locking enrollment lookup under MySQL repeatable-read isolation.
+
+The live HTTP demo enrolled two synthetic learners in the retained Day 3/4 published domain. Each received six unknown skill states; own reads and enrollment retries succeeded, every cross-learner request returned 404, and author state access returned 403. One missing local synthetic learner credential was added while preserving existing credentials. The application API and database remain healthy. See `11-day-5.md` and `verification.md` for the walkthrough and measured results.
+
+No real student data, diagnostics, planner, generation, scoring or AI provider calls were used. University identity/retention rules, instructor assignment sources and service grants remain unresolved; these do not block the synthetic Day 6 catalog work.
+
+## Next-session handoff
+
+Start Day 6 in `04-daily-plan.md`: implement the minimal activity library, reviewed 4C/ID mappings, and versioned learning-science/safety policies. Demonstrate approved worked-example, selected-response and constructed-response entries, and exclude unapproved content. Keep university review requirements explicit. Day 7 then adds deterministic planning using the published domain, isolated learner state and approved catalog. Retain the single-model-first direction for Days 12–13.
