@@ -97,4 +97,20 @@ No real student data, diagnostics, planner, generation, scoring or AI provider c
 
 ## Next-session handoff
 
-Start Day 6 in `04-daily-plan.md`: implement the minimal activity library, reviewed 4C/ID mappings, and versioned learning-science/safety policies. Demonstrate approved worked-example, selected-response and constructed-response entries, and exclude unapproved content. Keep university review requirements explicit. Day 7 then adds deterministic planning using the published domain, isolated learner state and approved catalog. Retain the single-model-first direction for Days 12–13.
+Start Day 7 in `04-daily-plan.md`: implement deterministic planning using the published graph, isolated learner state, exact approved activity/policy versions, prerequisites, rationale, support and time budget. Preserve unknown knowledge and whole-task context; enforce component eligibility and return after support. Demonstrate repeatable plans and differing beginner/experienced fixtures. Retain the single-model-first direction for Days 12–13.
+
+## Day 6 completed — October 7, 2026
+
+Time spent: developer time not reported; record separately.
+
+Implemented twelve catalog operations: immutable activity/policy version creation and inspection, attributed instructor-role review, and approved-only consumer lists/details. Migration `0006_catalog` adds activity variants, explicit 4C/ID mappings with rationale, and learning-science/safety policies without changing migrations 0001–0005. The minimal library has three format values; an editable type registry and delivered question/rubric schemas remain later work.
+
+Every activity pins exact approved policies of the correct category. Policies preserve unknown state, whole-task context, component eligibility, return after support and experimental evidence boundaries. Safety rules restrict synthetic use, disable code execution, reject client-authoritative scoring and require constructed-response review. Complete typed schemas reject missing/unknown or relaxed rules. Runtime enforcement remains part of the later planning, generation and scoring modules.
+
+Authors see their own submissions; instructors review all but cannot review their own content. Learner/integration roles see only approved consumer metadata. Draft/rejected content is excluded from lists and direct reads. Content cannot be edited or deleted; correction requires a new version. Reviews lock the target row, attribute the decision and preserve exact retries. All scope is `synthetic_only`, with provisional activity evidence tiers. Scripted development-account reviews do not claim expert or university approval.
+
+Evidence: 231 checks passed inside Python 3.9.21 against MySQL 8.4, with no skips. Tests cover role/author isolation, self-review denial, approved-only filtering, pinned immutable versions, conflicting concurrent reviews, atomic mapping/review rollback, unsafe rule rejection, database constraints, populated learner migration preservation and Alembic schema comparison. Local migration row hashes matched six courses, four domains, four competencies, thirteen skills, five prerequisite links, two learners, two enrollments and twelve unknown state rows.
+
+The live HTTP demo retained synthetic run `_B3C50883`: two approved policies, three approved activity formats, all four components, one draft policy and draft/rejected activity examples. Consumer exclusion, denied reviews, immutable decisions/content and stable retries passed. The local API/database are healthy. See `12-day-6.md` for the walkthrough and `verification.md` for measured results.
+
+University curriculum, learning-science, safety, privacy/retention, accessibility and assessment review remain outstanding. No real student data, planner, generation, scoring or provider calls were used. Day 7 deterministic planning is next.

@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.catalog import router as catalog_router
 from app.courses import router as courses_router
 from app.database import get_session
 from app.domains import router as domains_router
@@ -21,13 +22,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Learning Loop Engine API",
-    version="0.5.0",
-    description="Day 5 pseudonymous learners, enrollments and isolated unknown learner state. Learning loop modules are planned.",
+    version="0.6.0",
+    description="Day 6 versioned activity and policy catalogs with instructor review for synthetic prototype use. Planning and generation remain planned.",
     lifespan=lifespan,
 )
 app.include_router(courses_router, prefix="/api/v1")
 app.include_router(domains_router, prefix="/api/v1")
 app.include_router(learners_router, prefix="/api/v1")
+app.include_router(catalog_router, prefix="/api/v1")
 
 
 @app.exception_handler(SQLAlchemyError)
@@ -52,4 +54,7 @@ def ready(session: Session = Depends(get_session)):
     session.execute(text("SELECT id, principal_subject, created_at FROM learners LIMIT 1"))
     session.execute(text("SELECT id, learner_id, course_id, domain_version_id, status FROM enrollments LIMIT 1"))
     session.execute(text("SELECT enrollment_id, skill_id, domain_version_id, band, evidence_count, revision, updated_at FROM learner_skill_states LIMIT 1"))
+    session.execute(text("SELECT id, category, version, rules, review_status FROM policy_versions LIMIT 1"))
+    session.execute(text("SELECT id, activity_type, version, learning_science_policy_id, safety_policy_id, review_status FROM activity_variants LIMIT 1"))
+    session.execute(text("SELECT activity_variant_id, component, rationale FROM component_activity_mappings LIMIT 1"))
     return {"status": "ready"}

@@ -12,7 +12,11 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import get_engine, get_session
 from app.main import app
-from app.models import Competency, Course, DomainVersion, Enrollment, Learner, LearnerSkillState, Skill, SkillPrerequisite
+from app.models import (ActivityVariant, ComponentActivityMapping, PolicyVersion,
+                        Competency, Course, DomainVersion, Enrollment, Learner, LearnerSkillState, Skill, SkillPrerequisite)
+
+CLEANUP_MODELS = (ComponentActivityMapping, ActivityVariant, PolicyVersion,
+                  LearnerSkillState, Enrollment, Learner, SkillPrerequisite, Skill, Competency, DomainVersion, Course)
 
 TEST_API_KEY = "synthetic-test-key-32-characters-long"
 ROLE_KEYS = {role: "synthetic-" + role + "-key-32-characters-long" for role in ["instructor", "learner", "integration", "author"]}
@@ -126,6 +130,26 @@ def mysql_engine():
             for table, expected in before_day5.items():
                 assert connection.execute(text("SELECT * FROM " + table + " ORDER BY id")).mappings().all() == expected
         command.check(config)
+        # Day 6 preserves populated Day 5 records through downgrade/re-upgrade.
+        with get_engine().begin() as connection:
+            connection.execute(Learner.__table__.insert().values(id="migration-learner", principal_subject="migration-subject"))
+            connection.execute(Enrollment.__table__.insert().values(
+                id="migration-enrollment", learner_id="migration-learner",
+                course_id="00000000-0000-0000-0000-000000000001",
+                domain_version_id="00000000-0000-0000-0000-000000000003"))
+            connection.execute(LearnerSkillState.__table__.insert().values(
+                enrollment_id="migration-enrollment", skill_id="00000000-0000-0000-0000-000000000005",
+                domain_version_id="00000000-0000-0000-0000-000000000003"))
+            day5_tables = ("courses", "domain_versions", "competencies", "skills", "skill_prerequisites",
+                           "learners", "enrollments", "learner_skill_states")
+            before_day6 = {table: connection.execute(text("SELECT * FROM " + table)).mappings().all() for table in day5_tables}
+        command.downgrade(config, "0005_learners")
+        assert not {"policy_versions", "activity_variants", "component_activity_mappings"} & set(inspect(get_engine()).get_table_names())
+        command.upgrade(config, "head")
+        with get_engine().connect() as connection:
+            for table, expected in before_day6.items():
+                assert connection.execute(text("SELECT * FROM " + table)).mappings().all() == expected
+        command.check(config)
         with get_engine().connect() as connection:
             assert connection.execute(text("SELECT * FROM courses ORDER BY code")).mappings().all() == before_day3
         command.downgrade(config, "0002_course_lifecycle")
@@ -146,7 +170,7 @@ def mysql_engine():
         command.upgrade(config, "head")
         command.check(config)
         with get_engine().begin() as connection:
-            for model in (LearnerSkillState, Enrollment, Learner, SkillPrerequisite, Skill, Competency, DomainVersion, Course):
+            for model in CLEANUP_MODELS:
                 connection.execute(delete(model))
         get_engine().dispose()
         get_engine.cache_clear()
@@ -164,5 +188,5 @@ def mysql_client(mysql_engine, client):
     app.dependency_overrides[get_session] = session_override
     yield client
     with mysql_engine.begin() as connection:
-        for model in (LearnerSkillState, Enrollment, Learner, SkillPrerequisite, Skill, Competency, DomainVersion, Course):
+        for model in CLEANUP_MODELS:
             connection.execute(delete(model))

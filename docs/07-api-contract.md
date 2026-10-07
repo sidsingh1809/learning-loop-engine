@@ -1,6 +1,6 @@
 # API contract conventions
 
-Implemented contract, version 0.5.0. OpenAPI at `/openapi.json` is the route and schema reference. Application routes use `/api/v1`; health endpoints are unversioned and unauthenticated.
+Implemented contract, version 0.6.0. OpenAPI at `/openapi.json` is the route and schema reference. Application routes use `/api/v1`; health endpoints are unversioned and unauthenticated.
 
 ## Representation and validation
 
@@ -65,7 +65,7 @@ Codes are unique per domain version within each resource type; skill codes remai
 
 All four development roles may read this synthetic domain metadata, including drafts and archived-course domains. Writes require the author role and course ownership (403 otherwise), an active course, and a draft domain (409 otherwise). Missing or mismatched nested resources return 404. Authoring locks the course before the domain, serializing it with archival. Concurrent creation allocates distinct version numbers. Edits use last successful write semantics; no ETag or revision precondition exists yet.
 
-No domain deletion or cloning endpoint is implemented. Day 4 adds the graph and publication operations below. Readiness checks all eight implemented tables, including publication and learner metadata. Existing course endpoints retain their Day 2 behavior.
+No domain deletion or cloning endpoint is implemented. Day 4 adds the graph and publication operations below. Readiness checks all eleven implemented tables, including publication, learner and catalog metadata. Existing course endpoints retain their Day 2 behavior.
 
 ## Day 4 prerequisites, validation and publishing
 
@@ -106,3 +106,24 @@ First registration/enrollment returns 201 with Location; retries return 200 with
 Enrollment creation commits its record and all initial skill states together. Each state contains `skill_id`, `domain_version_id`, `band: unknown`, `evidence_count: 0`, `revision: 0`, and UTC `updated_at`. The timestamp records initial persistence, not learning evidence. Unknown does not assert low proficiency. Retrying enrollment or reading state never resets or adds states. No client score, proficiency or state-update route exists. Evidence-backed changes come in Days 9–10.
 
 Enrollment lists follow standard `{items, limit, offset}` pagination. State reads return `{enrollment_id, domain_version_id, items, limit, offset}`, default limit 20 and maximum 100. There is no learner directory or global enrollment list. All reads retain the standard sanitized database-error response.
+
+## Day 6 versioned activity and policy catalog
+
+All twelve operations below require authentication. Catalogs are global synthetic metadata and do not grant learner-data access.
+
+| Route under `/api/v1/catalog` | Methods | Access and behavior |
+|---|---|---|
+| `/policy-versions`, `/activity-versions` | POST | Author creates immutable draft; 201, Location |
+| `/policy-versions`, `/activity-versions` | GET | Authors list own submissions; instructors list all |
+| `/policy-versions/{version_id}`, `/activity-versions/{version_id}` | GET | Same author/instructor scope; inaccessible UUID returns 404 |
+| `/policy-versions/{version_id}/review`, `/activity-versions/{version_id}/review` | POST | Different instructor approves/rejects synthetic use; 200 |
+| `/policies`, `/activities` | GET | Every authenticated role; approved versions only |
+| `/policies/{version_id}`, `/activities/{version_id}` | GET | Every authenticated role; draft/rejected/missing UUID returns 404 |
+
+POST schemas require normalized code, explicit version (strict integer 1–2,147,483,647), title and nonempty bounded references. Policy creation adds category and complete typed rules; missing/extra rules, category mismatches and relaxed boundaries return 422. Activity creation adds format, purpose, guidance, nominal minutes (strict integer 1–180), exact approved learning-science/safety policy UUIDs and one to four unique component mappings with rationale. Missing/unapproved policies return 404, wrong categories 422. Mappings and metadata commit atomically. Review status/scope/attribution and provisional evidence tier are server-controlled; caller-supplied values return 422.
+
+Activity `(code, version)` and policy `(category, code, version)` are unique; duplicate creates return 409. Authors may contribute new versions to shared code families with per-version provenance. Content and mappings are immutable even in draft; PATCH/DELETE are unavailable (405). New versions never change existing bindings. Lists retain all approved versions; clients explicitly choose UUIDs rather than assuming latest or automatic supersession. Creation has no idempotency key.
+
+Review body is `{decision: approved|rejected, note: nonempty text}`. Non-instructors and same-subject self-review receive 403. Server stores reviewer, UTC time, note and `synthetic_only` scope atomically. An exact decision/note retry by the same reviewer returns the original representation; changed terminal reviews return 409. Concurrent reviews serialize. Rejected versions cannot be resubmitted; create a new version. Expert/university review and retirement/revocation remain outside this milestone.
+
+Lists return `{items, limit, offset}`, with standard bounds, ordered by `(code, version, id)`. Approved activity filters are `activity_type` and `component` (AND); policy filters use `category`. Authoring lists support `status`, with additional `category` for policies. Authors cannot inspect another author's submissions; instructors see all. Learner/integration roles receive 403 on authoring URLs. Extra consumer query parameters never expose unapproved content. See `12-day-6.md` and OpenAPI for complete schemas. Delivered prompts, answers, scoring and policy execution are later milestones.

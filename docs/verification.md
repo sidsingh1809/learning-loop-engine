@@ -1,5 +1,27 @@
 # Verification log
 
+## Day 6 — October 7, 2026
+
+| Check | Measured result |
+|---|---|
+| `docker compose --profile test run --build --rm tests` | 231 passed; no skips; final run 6.28 seconds |
+| Runtime/database | Python 3.9.21 image; MySQL 8.4 |
+| Migration lifecycle and Alembic comparison | Upgrade/base downgrade; populated Day 5 snapshots survive 0006 downgrade/re-upgrade; no schema differences |
+| Review/access | Author/instructor boundaries, own-author scope, self-review denial, attributed terminal review, stable retries and concurrent conflicting decisions |
+| Selection/versioning | Three approved formats, four components; draft/rejected list/detail exclusion; exact approved policy IDs retained across new versions |
+| Validation and rollback | Missing/unknown/relaxed rules rejected; version/duration/mapping bounds; failed mapping insertion and failed review leave no partial changes; MySQL constraints checked |
+| Local migration | All eight existing table row hashes match after additive migration |
+| `python3 scripts/demo_day6.py` | Live HTTP acceptance passed; retained synthetic run `_B3C50883` |
+| `docker compose up --build -d --wait api` | Migration completed; application API/database healthy |
+
+Preserved local rows: six courses, four domains, four competencies, thirteen skills, five prerequisite links, two learners, two enrollments and twelve skill states. Only counts/hashes were emitted for preservation comparison; no credentials or identity mappings were printed. Earlier migrations are unchanged.
+
+The live demo created two approved policies, three approved activities with all four components, one draft policy, one draft activity and one rejected activity. Draft/rejected consumer reads returned 404, unauthorized reviews 403, content edits 405, changed terminal decisions 409, exact retries unchanged 200 representations, and unapproved policy references 404. Writes used APIs and existing synthetic credentials; course/learner content was not modified.
+
+An initial run found a fixture packaging path error; the shared fixture now lives under the packaged application directory. Another run passed 221 checks and found a test expecting the wrong exception class for MySQL CHECK failures: PyMySQL reports error 3819 as OperationalError. The corrected test verifies the constraint error code. The final suite, including additional safety and failed-review regressions, passed all 231 checks.
+
+Instructor-role approvals are automated synthetic workflow tests, not human expert review or university approval. All scope remains `synthetic_only`, with `provisional` activity evidence tiers. No planner, generator, scoring, runtime policy evaluator, real learner data or AI provider call is part of this milestone. University review and retirement/revocation remain required before rollout. Day 6 downgrade destroys catalog data and is tested only in the disposable database.
+
 ## Day 5 — October 5, 2026
 
 | Check | Actual result |

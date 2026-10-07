@@ -37,6 +37,18 @@ All new tables retain the existing UTF-8 collation except the case-sensitive ide
 
 Migration 0005 preserves existing course, domain, competency, skill, prerequisite and publication data; migrations 0001–0004 are unchanged. Downgrade drops all learner/enrollment/state records and the new domain key. It is destructive to Day 5 data and verified only in the disposable test database.
 
+## Implemented in migration 0006
+
+- `policy_versions`: UUID, category (`learning_science`/`safety`), normalized code, explicit positive author-supplied version, title, required `references JSON`, typed `rules JSON`, creator and UTC creation time. Unique `(category, code, version)`. Review fields are `review_status` (`draft`/`approved`/`rejected`), fixed `review_scope: synthetic_only`, and nullable reviewer/time/note.
+- `activity_variants`: the same version/review metadata; unique `(code, version)`. Format is a closed enum of worked example, selected response and constructed response. Includes provisional evidence tier, purpose, guidance, nominal duration (1–180 minutes), and two retained policy FKs. The API requires exact approved policies of the appropriate category. There is no separately editable activity-type table or delivered question/answer/rubric content yet.
+- `component_activity_mappings`: composite primary key `(activity_variant_id, component)`, activity FK, and rationale. Component is restricted to the four 4C/ID names. The API requires one to four unique mappings and persists them atomically with the activity.
+
+All tables use the existing UTF-8 collation; creator/reviewer columns use `utf8mb4_bin` to match case-sensitive subjects. Checks enforce supported values, positive version/duration, provisional/synthetic scope, null review attribution for drafts, and complete attribution by a different subject for reviewed versions. Review serializes on the version row. Identical same-reviewer retries preserve metadata; changed terminal decisions are rejected. Draft content is also immutable: correction requires a new version.
+
+JSON shape, required mappings, approved policy categories, authorization, review transitions and immutability are service invariants. Policy documents are contracts for future enforcement, not a runtime evaluator. Consumer reads exclude drafts/rejections; authoring reads are scoped to the submitting author or reviewing instructor. Retirement/revocation remains planned. Prototype instructor-role approval is not expert/university approval.
+
+Migration 0006 preserves the eight existing tables and leaves migrations 0001–0005 unchanged. Downgrade drops all catalog records, losing Day 6 data; it is verified only in the disposable database. Populated learner records survive 0006 downgrade/re-upgrade tests, and full local migration row hashes match.
+
 ## Proposed next migrations
 
 These tables are a design, not an implemented database. We will refine each with its endpoint and tests instead of installing an unvalidated full schema at once.
@@ -46,9 +58,9 @@ These tables are a design, not an implemented database. We will refine each with
 | Domain extensions | `competencies.rubric_version_id` | Add reviewed rubric references to the existing domain tables |
 | Learner lifecycle extensions | Institution-scoped verified identity mapping; enrollment transitions and domain transfers | Explicit university mapping/retention policy; preserve evidence and version boundaries |
 | Scoring | `rubric_versions(id, competency_id, version, criteria_json, review_status)` | Immutable approved rubric; reference version in every scored attempt; resolve competency/rubric reference ordering in migration |
-| Catalog | `activity_types(id, code, evidence_tier, source_reference, review_status)`; `activity_variants(id, activity_type_id, version, config_json, evidence_tier)` | Tier may vary by variant; never infer every variation is established from format alone |
-| Catalog composition | `component_activity_mappings(component, activity_variant_id)`; `experience_patterns(id, version, steps_json, review_status)` | Four 4C/ID components; validated step schemas and approved variants |
-| Policy | `policy_versions(id, category, version, rules_json, references_json, review_status)` | Categories: learning science, safety/ethics, decision, mastery, spacing; immutable published versions |
+| Catalog extensions | Editable activity-type registry, additional configuration, retirement/revocation | Minimal variants/mappings are implemented; future evidence tiers need variation-specific review |
+| Catalog composition extensions | `experience_patterns(id, version, steps_json, review_status)` | Validated connected step schemas referencing exact approved variants |
+| Policy extensions | Extend implemented policy versions with decision, mastery and spacing schemas | Immutable versions with reviewed category-specific contracts; no invented thresholds |
 | Learner state updates | Extend implemented enrollment-scoped states with reviewed bands, evidence provenance and update history | Replace initial-only check with the evidence transaction contract; preserve unknown distinct from low band; revision supports concurrency |
 | Loop plans | `loop_plans(id, enrollment_id, domain_version_id, focus_skill_id, policy_version_id, status, rationale_json, created_at)` | Same-version skill FK; retain model-state revision and policy IDs used for decision |
 | Sequence | `loop_steps(id, loop_plan_id, position, component, activity_variant_id, support_level, estimated_minutes, context_key)` | Unique plan/position; positive estimated duration; explicit connections back to whole task |

@@ -2,13 +2,13 @@
 
 An API-first university learning system, developed in daily, testable increments. The target loop is: identify a learning gap → choose an instructional sequence → deliver activities → collect evidence → update the learner model → choose again.
 
-**Current milestone: Day 5 learners and isolation.** Implemented: MySQL course lifecycle APIs, domain authoring, validated immutable published prerequisite graphs, pseudonymous learners, published-version enrollments, unknown initial skill state, development roles and object ownership checks, health checks, OpenAPI documentation, migrations, and automated tests. The adaptive engine and activity generator are planned modules, not implemented features.
+**Current milestone: Day 6 activity and policy catalogs.** Implemented: MySQL course lifecycle, domain authoring and immutable published graphs, pseudonymous learners and isolated unknown state, versioned activity definitions with 4C/ID mappings, learning-science/safety policies, instructor-role review for synthetic use, approved-only catalog reads, development authorization, health checks, OpenAPI, migrations and automated tests. Planning and activity generation remain planned.
 
 ## Start here
 
 1. Read [the scope and unresolved decisions](docs/01-scope.md).
 2. Follow [the daily development plan](docs/04-daily-plan.md). It assumes one developer working 3–6 hours daily, with two hours already spent on Day 1.
-3. Run [the Day 5 walkthrough](docs/11-day-5.md); [Day 4](docs/10-day-4.md) covers publishing, [Day 3](docs/09-day-3.md) covers domain authoring, [Day 2](docs/06-day-2.md) covers course lifecycle and [Day 1](docs/05-day-1.md) covers the foundation.
+3. Run [the Day 6 walkthrough](docs/12-day-6.md); [Day 5](docs/11-day-5.md) covers learners, [Day 4](docs/10-day-4.md) covers publishing, [Day 3](docs/09-day-3.md) covers domain authoring, [Day 2](docs/06-day-2.md) covers course lifecycle and [Day 1](docs/05-day-1.md) covers the foundation.
 4. Use [the progress log](docs/daily-updates.md) for daily reporting.
 
 ## Run locally
@@ -35,6 +35,7 @@ python3 scripts/demo_day2.py
 python3 scripts/demo_day3.py
 python3 scripts/demo_day4.py
 python3 scripts/demo_day5.py --course-id 902a24a1-efa5-4172-a261-527f89e03c63 --domain-version-id 3288966b-a0cf-440b-8520-582f52cc88fa
+python3 scripts/demo_day6.py
 
 # Confirm exact runtime and inspect service state.
 docker compose exec api python --version
@@ -51,7 +52,7 @@ Host development is optional: install Python **3.9.21**, create `.venv`, install
 | Method | Route | Purpose |
 |---|---|---|
 | GET | `/health/live` | Process health, no database required |
-| GET | `/health/ready` | Migrated course table is reachable |
+| GET | `/health/ready` | All eleven migrated application tables are reachable |
 | POST | `/api/v1/courses` | Create a course; returns 201 and Location |
 | GET | `/api/v1/courses?limit=20&offset=0&status=active` | List courses, ordered by code; supports active/archived/all |
 | GET | `/api/v1/courses/{uuid}` | Retrieve one course |
@@ -66,6 +67,8 @@ Every application operation will be available through APIs, including authoring,
 
 Day 5 adds six learner operations: register the authenticated learner with `POST /api/v1/learners` and `{}`; read `/learners/{learner_id}`; create/list `/learners/{learner_id}/enrollments`; read an individual enrollment and its `/state`. Enrollment POST takes `course_id` and `domain_version_id`, requires an active course and published version, and initializes every skill as `unknown` with zero evidence and revision. Repeated registration/enrollment returns the existing row (200); first creation returns 201 and Location. Learners receive 404 for another learner's records, and author/instructor/integration roles without learner authority receive 403. State has no write endpoint. See [Day 5](docs/11-day-5.md) for examples and current enrollment limits.
 
+Day 6 adds twelve catalog operations under `/api/v1/catalog`: create/list/read immutable `/activity-versions` and `/policy-versions`, instructor `/review` actions, and approved-only `/activities` and `/policies` list/detail reads. Activities pin exact approved policy IDs and retain component mappings with rationale. Review is for synthetic prototype use only; university and expert review remain outstanding. See [Day 6](docs/12-day-6.md) for the contract and limits.
+
 ## Project map
 
 ```text
@@ -79,7 +82,7 @@ compose.yaml          Local app and separate disposable test database
 requirements*.txt     Pinned runtime and test dependencies
 ```
 
-See [architecture](docs/02-architecture.md) and [schema design](docs/03-schema.md) for the intended system. The implemented tables are `courses`, `domain_versions`, `competencies`, `skills`, `skill_prerequisites`, `learners`, `enrollments`, and `learner_skill_states`.
+See [architecture](docs/02-architecture.md) and [schema design](docs/03-schema.md) for the intended system. The eleven implemented tables are `courses`, `domain_versions`, `competencies`, `skills`, `skill_prerequisites`, `learners`, `enrollments`, `learner_skill_states`, `policy_versions`, `activity_variants` and `component_activity_mappings`.
 
 ## Engineering constraints
 

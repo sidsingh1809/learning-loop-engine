@@ -1,0 +1,81 @@
+{
+  "policies": [
+    {
+      "category": "learning_science",
+      "code": "SYNTHETIC_4CID",
+      "version": 1,
+      "title": "Provisional connected learning policy",
+      "references": ["https://www.4cid.org/about/", "docs/01-scope.md"],
+      "rules": {
+        "unknown_state": "diagnostic_or_guided",
+        "whole_task_context_required": true,
+        "return_to_whole_task_after_support": true,
+        "supportive_information": "non_routine_reasoning",
+        "procedural_information": "routine_just_in_time",
+        "part_task_practice": "routine_automaticity_only",
+        "support": "fade_with_evidence",
+        "part_task_success_certifies_competency": false,
+        "formal_certification": false
+      }
+    },
+    {
+      "category": "safety",
+      "code": "SYNTHETIC_SAFETY",
+      "version": 1,
+      "title": "Synthetic prototype safety boundaries",
+      "references": ["docs/01-scope.md", "docs/12-day-6.md"],
+      "rules": {
+        "data": "synthetic_only",
+        "generated_content": "untrusted_until_validated_and_reviewed",
+        "learner_input": "data_not_instructions",
+        "code_execution": "disabled",
+        "client_authoritative_scores": "forbidden",
+        "constructed_response_scoring": "instructor_review_required",
+        "university_review_required": true
+      }
+    }
+  ],
+  "activities": [
+    {
+      "code": "DEBUG_WORKED",
+      "version": 1,
+      "title": "Model a complete debugging task",
+      "activity_type": "worked_example",
+      "purpose": "Show a synthetic debugging task from symptom through hypothesis, trace, correction and verification.",
+      "guidance": "Use one connected whole-task example. Explain non-routine reasoning separately from just-in-time routine tracing instructions. Observing a solution is not evidence of independent performance.",
+      "estimated_minutes": 6,
+      "references": ["https://www.4cid.org/about/", "docs/01-scope.md"],
+      "mappings": [
+        {"component": "learning_tasks", "rationale": "A fully supported model of the whole debugging task; use before less-supported performance."},
+        {"component": "supportive_information", "rationale": "Make hypothesis selection and verification reasoning available before and during the non-routine task aspects."},
+        {"component": "procedural_information", "rationale": "Present routine variable-tracing steps just when the learner needs them; fade support with evidence."}
+      ]
+    },
+    {
+      "code": "TRACE_SELECTED",
+      "version": 1,
+      "title": "Recognize a routine trace result",
+      "activity_type": "selected_response",
+      "purpose": "Practice identifying a variable value in a short synthetic trace tied to the current debugging task.",
+      "guidance": "Use part-task practice only for a routine skill explicitly requiring automaticity, after introducing it in a meaningful whole task. Return to the whole task afterward. Recognition practice cannot certify independent debugging competency.",
+      "estimated_minutes": 3,
+      "references": ["https://www.4cid.org/about/", "docs/01-scope.md"],
+      "mappings": [
+        {"component": "part_task_practice", "rationale": "Eligible only when the focus skill is routine, requires automaticity and needs additional practice beyond whole tasks."}
+      ]
+    },
+    {
+      "code": "DEBUG_CONSTRUCTED",
+      "version": 1,
+      "title": "Explain and repair a synthetic defect",
+      "activity_type": "constructed_response",
+      "purpose": "Ask for a diagnosis, correction and verification explanation for one connected synthetic programming task.",
+      "guidance": "Request reasoning and verification, not only a final answer. Adapt support to evidence. Keep the response pending authorized instructor review; do not execute submitted code or infer formal competency from part-task success.",
+      "estimated_minutes": 10,
+      "references": ["https://www.4cid.org/about/", "docs/01-scope.md"],
+      "mappings": [
+        {"component": "learning_tasks", "rationale": "Integrate routine tracing and non-routine diagnosis in a whole debugging task; require instructor review before authoritative scoring."}
+      ]
+    }
+  ]
+}
