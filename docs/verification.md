@@ -1,5 +1,29 @@
 # Verification log
 
+## Day 7 — October 8, 2026
+
+User verification: terminal and Swagger walkthrough completed, as reported by the developer on October 8, 2026.
+
+| Check | Measured result |
+|---|---|
+| `docker compose --profile test run --build --rm tests python -m pytest -q --tb=short --maxfail=1` | 283 passed; no skips; final run 8.59 seconds |
+| Runtime/database | Python 3.9.21 image; MySQL 8.4 |
+| Pure planner fixtures | Unknown: VARIABLES guidance, 16 minutes; beginner: VARIABLES support/practice, 19 minutes; experienced: DEBUGGING independent task, 10 minutes; requested budget 25 |
+| Determinism/provenance | Identical and reordered inputs yield identical decisions/fingerprints; exact graph/state/catalog/policy snapshot replay matches saved decision |
+| Prerequisites/support | Transitive prerequisite selection; unrelated gaps ignored; unknown preserved; support fades with observed fixture bands; routine automaticity-only part-task practice |
+| Budget/catalog rules | Full catalog duration retained; optional practice omitted at 16-minute beginner boundary; undersized connected sequences rejected; draft/rejected/wrong-policy/missing-mapping candidates excluded |
+| API/storage | Ownership and parent isolation, spoofed-role rejection, strict request validation, immutable surface, exact retries, concurrent single-plan creation, atomic step-failure rollback and unchanged state |
+| Migration lifecycle | Fresh/base and earlier lifecycle checks; populated Day 6 reviewed catalog and Day 5 learner rows survive 0007 downgrade/re-upgrade; Alembic schema comparison passes |
+| Local migration | All 11 pre-existing table counts and complete row hashes match before/after 0007 |
+| Local HTTP demo | Saved plan `d4022c31-de90-4a82-bffa-3f9b9cda8bc9`; create/read/retry/replay, 404 learner isolation, 403 role denial, 409 budget failure and unchanged state passed |
+| `docker compose up --build -d --wait api` | Migration completed; application API/database healthy |
+
+Preserved local rows: six courses, four domains, four competencies, thirteen skills, five prerequisites, two learners, two enrollments, twelve unknown state rows, eight policy versions, eleven activity variants and twenty-five component mappings. Only counts and hashes were emitted for preservation comparison. The live demo then created one plan with its connected steps through HTTP; existing graph, catalog, enrollment and state records were reused.
+
+The first MySQL run passed 282 checks and exposed a concurrent read issue: after waiting for a newly created plan, a repeat request's ordinary relationship lookup could see the older repeatable-read snapshot and omit steps. Plan POST now uses a current locking step lookup; concurrent representations match. A subsequent migration-fixture run failed because Pydantic read serializers emitted UTC timestamp strings for direct SQL inserts. The fixture now uses naive UTC datetime attributes for database columns. The final full suite passes all 283 checks, including both regressions and the shared whole-task context field.
+
+Beginner/experienced bands are synthetic internal fixtures, not persisted evidence or calibrated mastery. The public API only consumes stored authoritative unknown state today; the original initial-state database constraint is unchanged. Track A does not call a generator/provider, score work, update state or certify competency. Educational quality and university policy approval remain unverified. Day 7 downgrade loses plans/steps and is tested only in the disposable database.
+
 ## Day 6 — October 7, 2026
 
 | Check | Measured result |

@@ -25,7 +25,7 @@ flowchart LR
     State --> Planner
 ```
 
-This diagram describes the target. Days 1–6 implement the API, course lifecycle, immutable published domain graphs, isolated learner enrollment/state, and versioned activity/policy catalogs with instructor-role review for synthetic use. Planning, generation and evidence updates remain planned.
+This diagram describes the target. Days 1–7 implement the API, course lifecycle, immutable published domain graphs, isolated learner enrollment/state, and versioned activity/policy catalogs with instructor-role review for synthetic use. Track A now saves deterministic decisions and connected steps with complete input snapshots. Generation and evidence updates remain planned.
 
 ## Core transaction
 
@@ -58,7 +58,7 @@ No score formula or evidence threshold is an approved university policy at this 
 | Domain | POST `/courses/{id}/domain-versions`, skills, prerequisites, validate/publish actions | Day 3 authoring and Day 4 validated immutable publishing implemented |
 | Learners | POST `/learners`, POST/GET `/learners/{id}/enrollments`, GET `/learners/{id}/enrollments/{enrollment_id}/state` | Day 5 self-owned enrollment and unknown state implemented |
 | Catalogs | Versioned activity definitions, component mappings, policy versions, review actions and approved-only reads | Day 6 implemented; synthetic approval only |
-| Plans | POST `/learners/{id}/loop-plans`, GET `/loop-plans/{id}` | Day 7 |
+| Plans | POST `/learners/{id}/loop-plans`, GET `/loop-plans/{id}` | Day 7 implemented |
 | Activities | POST `/loop-plans/{id}/generations`, GET `/activities/{id}` | Day 8 |
 | Evidence | POST `/activities/{id}/attempts`, POST `/attempts/{id}/reviews` | Day 9 |
 | Progress | GET `/learners/{id}/progress`, POST `/loops/{id}/resume` | Days 10–11 |

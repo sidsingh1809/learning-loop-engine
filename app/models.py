@@ -232,3 +232,59 @@ class ComponentActivityMapping(Base):
     activity_variant_id: Mapped[str] = mapped_column(ForeignKey("activity_variants.id"), primary_key=True)
     component: Mapped[str] = mapped_column(String(32), primary_key=True)
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class LoopPlan(Base):
+    __tablename__ = "loop_plans"
+    __table_args__ = (
+        ForeignKeyConstraint(["enrollment_id", "domain_version_id"], ["enrollments.id", "enrollments.domain_version_id"],
+                             name="fk_plan_enrollment_domain"),
+        ForeignKeyConstraint(["target_skill_id", "domain_version_id"], ["skills.id", "skills.domain_version_id"],
+                             name="fk_plan_target_domain"),
+        ForeignKeyConstraint(["focus_skill_id", "domain_version_id"], ["skills.id", "skills.domain_version_id"],
+                             name="fk_plan_focus_domain"),
+        UniqueConstraint("enrollment_id", "input_fingerprint", name="uq_plan_enrollment_input"),
+        UniqueConstraint("id", "domain_version_id", name="uq_plan_id_domain"),
+        CheckConstraint("time_budget_minutes > 0 AND time_budget_minutes <= 180", name="ck_plan_budget"),
+        CheckConstraint("estimated_minutes > 0 AND estimated_minutes <= time_budget_minutes", name="ck_plan_duration"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    enrollment_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    domain_version_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    target_skill_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    focus_skill_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    learning_science_policy_id: Mapped[str] = mapped_column(ForeignKey("policy_versions.id"), nullable=False)
+    safety_policy_id: Mapped[str] = mapped_column(ForeignKey("policy_versions.id"), nullable=False)
+    input_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    time_budget_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    estimated_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    decision: Mapped[dict] = mapped_column(JSON, nullable=False)
+    input_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+    steps: Mapped[list["LoopStep"]] = relationship(order_by="LoopStep.position")
+
+
+class LoopStep(Base):
+    __tablename__ = "loop_steps"
+    __table_args__ = (
+        ForeignKeyConstraint(["loop_plan_id", "domain_version_id"], ["loop_plans.id", "loop_plans.domain_version_id"],
+                             name="fk_step_plan_domain"),
+        ForeignKeyConstraint(["skill_id", "domain_version_id"], ["skills.id", "skills.domain_version_id"],
+                             name="fk_step_skill_domain"),
+        CheckConstraint("position > 0", name="ck_step_position"),
+        CheckConstraint("estimated_minutes > 0 AND estimated_minutes <= 180", name="ck_step_duration"),
+        CheckConstraint("support_level IN ('high', 'minimal')", name="ck_step_support"),
+        CheckConstraint("role IN ('whole_task_context', 'focus_practice', 'whole_task_return', 'whole_task')", name="ck_step_role"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+    loop_plan_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    position: Mapped[int] = mapped_column(Integer, primary_key=True)
+    domain_version_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    skill_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    activity_variant_id: Mapped[str] = mapped_column(ForeignKey("activity_variants.id"), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    components: Mapped[list] = mapped_column(JSON, nullable=False)
+    support_level: Mapped[str] = mapped_column(String(16), nullable=False)
+    estimated_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)

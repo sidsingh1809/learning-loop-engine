@@ -95,7 +95,7 @@ The live HTTP demo enrolled two synthetic learners in the retained Day 3/4 publi
 
 No real student data, diagnostics, planner, generation, scoring or AI provider calls were used. University identity/retention rules, instructor assignment sources and service grants remain unresolved; these do not block the synthetic Day 6 catalog work.
 
-## Next-session handoff
+## Day 6 handoff (historical)
 
 Start Day 7 in `04-daily-plan.md`: implement deterministic planning using the published graph, isolated learner state, exact approved activity/policy versions, prerequisites, rationale, support and time budget. Preserve unknown knowledge and whole-task context; enforce component eligibility and return after support. Demonstrate repeatable plans and differing beginner/experienced fixtures. Retain the single-model-first direction for Days 12–13.
 
@@ -114,3 +114,25 @@ Evidence: 231 checks passed inside Python 3.9.21 against MySQL 8.4, with no skip
 The live HTTP demo retained synthetic run `_B3C50883`: two approved policies, three approved activity formats, all four components, one draft policy and draft/rejected activity examples. Consumer exclusion, denied reviews, immutable decisions/content and stable retries passed. The local API/database are healthy. See `12-day-6.md` for the walkthrough and `verification.md` for measured results.
 
 University curriculum, learning-science, safety, privacy/retention, accessibility and assessment review remain outstanding. No real student data, planner, generation, scoring or provider calls were used. Day 7 deterministic planning is next.
+
+## Day 7 completed — October 8, 2026
+
+Time spent: developer time not reported; record separately.
+
+User verification: the developer reported completing the Day 7 terminal and Swagger tests on October 8, 2026.
+
+Implemented Track A's pure deterministic planner and two self-owned next-action API operations. Plans select the earliest unresolved transitive prerequisite, explain the choice, distinguish unknown knowledge from low proficiency, choose support and complexity, and compose reviewed activity definitions within a strict time budget. Supported sequences preserve whole-task context and return after support; automaticity practice is restricted to observed developing routine skills explicitly requiring it. Full catalog durations are retained.
+
+Migration `0007_planner` adds immutable plan snapshots and normalized ordered steps. All previous migrations and learner-state constraints remain unchanged. Plans pin the exact published domain, approved policies and activity versions, learner-state revisions and planner version. Canonical inputs produce the same decision and reuse one plan per enrollment, including concurrent requests. Stored reads retain the original snapshot after course archival. Ownership checks deny other learners and unauthorized roles, and failed step insertion rolls back the whole creation.
+
+Evidence: all 283 checks passed inside Python 3.9.21 against MySQL 8.4, with no skips; the final run took 8.59 seconds. Tests cover deterministic ordering, transitive/unrelated prerequisites, component eligibility, support fading, budget boundaries, approved compatible catalogs, API isolation, concurrent retries, rollback, database integrity and populated migration downgrade/re-upgrade. Every pre-existing local table retained its complete row hash across the additive migration.
+
+The internal 25-minute fixtures produce unknown VARIABLES guidance (16 minutes), beginner VARIABLES guidance plus automaticity practice (19 minutes), and experienced independent DEBUGGING work (10 minutes). These observed bands are illustrative internal inputs; the public API continues to read authoritative initial unknown state until Day 9 introduces evidence processing. No client proficiency override or live evidence seeding was added.
+
+The live HTTP demo reused the retained published pilot, existing learner/enrollment and reviewed catalogs. It saved plan `d4022c31-de90-4a82-bffa-3f9b9cda8bc9`, verified 201 create, unchanged 200 retry/read and snapshot replay, 404 cross-learner access, 403 author access, 409 insufficient budget and unchanged learner state. The API/database remain healthy locally. See `13-day-7.md` and `verification.md`.
+
+No activity content generation, scoring, state updates, AI provider calls or real learner data were introduced. University and expert review remain outstanding.
+
+## Next-session handoff
+
+Start Day 8 in `04-daily-plan.md`: implement Track B's template generator consuming saved plans. Preserve the shared whole-task context key, target/focus skill alignment, ordered component mappings, exact catalog/policy versions, complete time budgets and constructed-response review boundaries. Validate generated content before delivery. Keep the single-model-first provider direction for Days 12–13; learner evidence/state updates remain Day 9 work.

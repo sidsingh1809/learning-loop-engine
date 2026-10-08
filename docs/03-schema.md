@@ -45,9 +45,20 @@ Migration 0005 preserves existing course, domain, competency, skill, prerequisit
 
 All tables use the existing UTF-8 collation; creator/reviewer columns use `utf8mb4_bin` to match case-sensitive subjects. Checks enforce supported values, positive version/duration, provisional/synthetic scope, null review attribution for drafts, and complete attribution by a different subject for reviewed versions. Review serializes on the version row. Identical same-reviewer retries preserve metadata; changed terminal decisions are rejected. Draft content is also immutable: correction requires a new version.
 
-JSON shape, required mappings, approved policy categories, authorization, review transitions and immutability are service invariants. Policy documents are contracts for future enforcement, not a runtime evaluator. Consumer reads exclude drafts/rejections; authoring reads are scoped to the submitting author or reviewing instructor. Retirement/revocation remains planned. Prototype instructor-role approval is not expert/university approval.
+JSON shape, required mappings, approved policy categories, authorization, review transitions and immutability are service invariants. Policy documents are typed contracts; Day 7 enforces planning-related boundaries, while generation/scoring enforcement follows in those modules. Consumer reads exclude drafts/rejections; authoring reads are scoped to the submitting author or reviewing instructor. Retirement/revocation remains planned. Prototype instructor-role approval is not expert/university approval.
 
 Migration 0006 preserves the eight existing tables and leaves migrations 0001–0005 unchanged. Downgrade drops all catalog records, losing Day 6 data; it is verified only in the disposable database. Populated learner records survive 0006 downgrade/re-upgrade tests, and full local migration row hashes match.
+
+## Implemented in migration 0007
+
+- `loop_plans`: UUID, enrollment/domain, target/focus skills, exact learning-science/safety policy FKs, SHA-256 input fingerprint, requested and estimated minutes, UTC creation time, decision metadata JSON and complete typed input snapshot JSON. Composite FKs enforce the enrollment/target/focus domain boundary. Unique `(enrollment_id, input_fingerprint)` retains one decision per identical versioned input. Checks enforce a 1–180 minute budget and positive total within budget.
+- `loop_steps`: composite primary key `(loop_plan_id, position)`, domain, skill, exact activity FK, role, selected component list JSON, support level, full catalog duration and rationale. Composite FKs enforce same-domain plan and skill; checks constrain positive position/duration and supported role/support values. Plan metadata and normalized steps commit together.
+
+The JSON decision excludes steps; reads assemble them from the normalized rows in position order. Its shared context key binds prerequisite support and the return to the target whole task. The complete input snapshot retains graph, state bands/counts/revisions, candidate catalog metadata and exact policy versions for replay. Authorization, approved/compatible catalog selection, eligibility, connected sequencing, summed durations and immutability are service invariants. No plan/step edit or delete API exists.
+
+Planning locks course → domain → enrollment → states, followed by a current plan/step read for deterministic concurrent retries under MySQL repeatable-read. Read-only GET uses a consistent snapshot. No learner-state constraint is relaxed: production tables remain initial-only until the evidence milestone. Internal beginner/experienced fixtures are distinct from persisted learner state.
+
+Migration 0007 is additive; migrations 0001–0006 remain unchanged. Downgrade loses plans/steps and is tested only in the disposable database. Populated reviewed catalog and learner rows survive its downgrade/re-upgrade; Alembic checks model/schema agreement.
 
 ## Proposed next migrations
 
@@ -62,8 +73,6 @@ These tables are a design, not an implemented database. We will refine each with
 | Catalog composition extensions | `experience_patterns(id, version, steps_json, review_status)` | Validated connected step schemas referencing exact approved variants |
 | Policy extensions | Extend implemented policy versions with decision, mastery and spacing schemas | Immutable versions with reviewed category-specific contracts; no invented thresholds |
 | Learner state updates | Extend implemented enrollment-scoped states with reviewed bands, evidence provenance and update history | Replace initial-only check with the evidence transaction contract; preserve unknown distinct from low band; revision supports concurrency |
-| Loop plans | `loop_plans(id, enrollment_id, domain_version_id, focus_skill_id, policy_version_id, status, rationale_json, created_at)` | Same-version skill FK; retain model-state revision and policy IDs used for decision |
-| Sequence | `loop_steps(id, loop_plan_id, position, component, activity_variant_id, support_level, estimated_minutes, context_key)` | Unique plan/position; positive estimated duration; explicit connections back to whole task |
 | Activities | `activities(id, loop_step_id, version, content_json, rubric_version_id, generation_job_id, review_status, content_hash)`; `activity_skills(activity_id, skill_id, evidence_role)` | Frozen delivered activity version; map multi-skill whole tasks; candidate and approved states distinct |
 | Attempts | `attempts(id, activity_id, learner_id, idempotency_key, request_hash, response_json, submitted_at, status)` | Unique caller/operation/idempotency key; mismatched replays return conflict; index learner/submission time |
 | Evidence | `evidence(id, attempt_id, skill_id, rubric_version_id, scorer_version, evidence_kind, score, max_score, eligible, reviewed_by)` | Unique attempt/skill/scorer revision; nonnegative score, positive max, score <= max; source lineage mandatory |

@@ -13,9 +13,9 @@ from app.config import get_settings
 from app.database import get_engine, get_session
 from app.main import app
 from app.models import (ActivityVariant, ComponentActivityMapping, PolicyVersion,
-                        Competency, Course, DomainVersion, Enrollment, Learner, LearnerSkillState, Skill, SkillPrerequisite)
+                        Competency, Course, DomainVersion, Enrollment, Learner, LearnerSkillState, LoopPlan, LoopStep, Skill, SkillPrerequisite)
 
-CLEANUP_MODELS = (ComponentActivityMapping, ActivityVariant, PolicyVersion,
+CLEANUP_MODELS = (LoopStep, LoopPlan, ComponentActivityMapping, ActivityVariant, PolicyVersion,
                   LearnerSkillState, Enrollment, Learner, SkillPrerequisite, Skill, Competency, DomainVersion, Course)
 
 TEST_API_KEY = "synthetic-test-key-32-characters-long"
@@ -148,6 +148,36 @@ def mysql_engine():
         command.upgrade(config, "head")
         with get_engine().connect() as connection:
             for table, expected in before_day6.items():
+                assert connection.execute(text("SELECT * FROM " + table)).mappings().all() == expected
+        command.check(config)
+        # Day 7 is additive; populated reviewed catalog and learner records survive.
+        from app.planner_fixtures import synthetic_input
+        fixture = synthetic_input()
+        with get_engine().begin() as connection:
+            for policy in [fixture.learning_science_policy, fixture.safety_policy]:
+                values = policy.model_dump()
+                values["id"] = str(policy.id)
+                values["created_at"] = policy.created_at.replace(tzinfo=None)
+                values["reviewed_at"] = policy.reviewed_at.replace(tzinfo=None)
+                values["rules"] = policy.rules.model_dump(mode="json")
+                connection.execute(PolicyVersion.__table__.insert().values(**values))
+            for activity in fixture.activities:
+                values = activity.model_dump(exclude={"mappings"})
+                values["created_at"] = activity.created_at.replace(tzinfo=None)
+                values["reviewed_at"] = activity.reviewed_at.replace(tzinfo=None)
+                for field in ["id", "learning_science_policy_id", "safety_policy_id"]:
+                    values[field] = str(values[field])
+                connection.execute(ActivityVariant.__table__.insert().values(**values))
+                for mapping in activity.mappings:
+                    connection.execute(ComponentActivityMapping.__table__.insert().values(
+                        activity_variant_id=str(activity.id), **mapping.model_dump()))
+            day6_tables = (*day5_tables, "policy_versions", "activity_variants", "component_activity_mappings")
+            before_day7 = {table: connection.execute(text("SELECT * FROM " + table)).mappings().all() for table in day6_tables}
+        command.downgrade(config, "0006_catalog")
+        assert not {"loop_plans", "loop_steps"} & set(inspect(get_engine()).get_table_names())
+        command.upgrade(config, "head")
+        with get_engine().connect() as connection:
+            for table, expected in before_day7.items():
                 assert connection.execute(text("SELECT * FROM " + table)).mappings().all() == expected
         command.check(config)
         with get_engine().connect() as connection:

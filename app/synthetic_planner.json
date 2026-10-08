@@ -1,0 +1,16 @@
+{
+  "skills": [
+    {"code": "VARIABLES", "title": "Trace variables", "skill_kind": "routine", "requires_automaticity": true},
+    {"code": "EXPRESSIONS", "title": "Evaluate expressions", "skill_kind": "routine", "requires_automaticity": true},
+    {"code": "CONDITIONALS", "title": "Trace conditional branches", "skill_kind": "routine", "requires_automaticity": false},
+    {"code": "LOOPS", "title": "Trace loop iterations", "skill_kind": "routine", "requires_automaticity": false},
+    {"code": "DEBUGGING", "title": "Diagnose and repair a defect", "skill_kind": "non_routine", "requires_automaticity": false}
+  ],
+  "edges": [["DEBUGGING", "LOOPS"], ["LOOPS", "CONDITIONALS"], ["CONDITIONALS", "EXPRESSIONS"], ["EXPRESSIONS", "VARIABLES"]],
+  "target": "DEBUGGING",
+  "profiles": {
+    "beginner": {"VARIABLES": "developing", "EXPRESSIONS": "unknown", "CONDITIONALS": "unknown", "LOOPS": "unknown", "DEBUGGING": "unknown"},
+    "experienced": {"VARIABLES": "secure", "EXPRESSIONS": "secure", "CONDITIONALS": "secure", "LOOPS": "secure", "DEBUGGING": "secure"},
+    "unknown": {"VARIABLES": "unknown", "EXPRESSIONS": "unknown", "CONDITIONALS": "unknown", "LOOPS": "unknown", "DEBUGGING": "unknown"}
+  }
+}
