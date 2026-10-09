@@ -25,7 +25,7 @@ flowchart LR
     State --> Planner
 ```
 
-This diagram describes the target. Days 1–8 implement the API, course lifecycle, immutable published domain graphs, isolated learner enrollment/state, and versioned activity/policy catalogs with instructor-role review for synthetic use. Track A now saves deterministic decisions and connected steps with complete input snapshots. Track B now saves validated, ordered template activities and requires attributed synthetic instructor review before delivery. Evidence updates remain planned.
+This diagram describes the target. Days 1–9 implement the API, course lifecycle, immutable published domain graphs, isolated learner enrollment/state, and versioned activity/policy catalogs with instructor-role review for synthetic use. Track A saves deterministic decisions and connected steps with complete input snapshots. Track B saves validated, ordered template activities and requires attributed synthetic instructor review before delivery. Attempts now retain immutable answers and server/instructor-scored criterion evidence. Applying evidence to learner state remains Day 10 work.
 
 ## Core transaction
 
@@ -60,7 +60,7 @@ No score formula or evidence threshold is an approved university policy at this 
 | Catalogs | Versioned activity definitions, component mappings, policy versions, review actions and approved-only reads | Day 6 implemented; synthetic approval only |
 | Plans | POST `/learners/{id}/loop-plans`, GET `/loop-plans/{id}` | Day 7 implemented |
 | Activities | POST `/loop-plans/{id}/generations`, GET `/activities/{id}` | Day 8 implemented |
-| Evidence | POST `/activities/{id}/attempts`, POST `/attempts/{id}/reviews` | Day 9 |
+| Evidence | POST/GET `/activities/{id}/attempts`, GET `/attempts/{id}`, instructor GET `/attempts/{id}/review-content` and POST `/attempts/{id}/review` | Day 9 implemented |
 | Progress | GET `/learners/{id}/progress`, POST `/loops/{id}/resume` | Days 10–11 |
 | Jobs and events | GET `/jobs/{id}`, webhook registration and delivery records | Days 13–15 |
 

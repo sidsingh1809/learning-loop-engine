@@ -1,6 +1,6 @@
 # API contract conventions
 
-Implemented contract, version 0.6.0. OpenAPI at `/openapi.json` is the route and schema reference. Application routes use `/api/v1`; health endpoints are unversioned and unauthenticated.
+Implemented contract, version 0.9.0. OpenAPI at `/openapi.json` is the route and schema reference. Application routes use `/api/v1`; health endpoints are unversioned and unauthenticated.
 
 ## Representation and validation
 
@@ -35,7 +35,7 @@ Courses start active. Archival retains the row and unique code; it is terminal i
 
 PATCH and archive lock the same course row. A concurrent edit either completes before archival or sees the archived state and returns 409. Concurrent edits to the same field use the last successful write; no ETag or revision check is implemented. Duplicate-code failure rolls the entire edit back. A no-op PATCH may leave `updated_at` unchanged.
 
-Creation does not implement idempotency keys: a repeat with the same code returns 409. Archive is idempotent. GET is safe to retry. Attempt and generation idempotency remains planned for the milestones that introduce those resources.
+Course creation does not implement idempotency keys: a repeat with the same code returns 409. Archive is idempotent. GET is safe to retry. Generation reuses one candidate per plan/generator version; attempts use explicit enrollment-scoped UUID keys as described in Day 9 below.
 
 The default list now excludes archived courses; clients needing history must request `status=all`. Existing courses migrate to active and preserve their UUIDs, codes, descriptions and creation times. New response fields are additive.
 
@@ -65,7 +65,7 @@ Codes are unique per domain version within each resource type; skill codes remai
 
 All four development roles may read this synthetic domain metadata, including drafts and archived-course domains. Writes require the author role and course ownership (403 otherwise), an active course, and a draft domain (409 otherwise). Missing or mismatched nested resources return 404. Authoring locks the course before the domain, serializing it with archival. Concurrent creation allocates distinct version numbers. Edits use last successful write semantics; no ETag or revision precondition exists yet.
 
-No domain deletion or cloning endpoint is implemented. Day 4 adds the graph and publication operations below. Readiness checks all eleven implemented tables, including publication, learner and catalog metadata. Existing course endpoints retain their Day 2 behavior.
+No domain deletion or cloning endpoint is implemented. Day 4 adds the graph and publication operations below. Readiness checks all eighteen implemented tables, including learner, catalog, plan, activity and evidence metadata. Existing course endpoints retain their Day 2 behavior.
 
 ## Day 4 prerequisites, validation and publishing
 
@@ -138,4 +138,18 @@ The first decision returns 201 and `Location: /api/v1/loop-plans/{plan_id}`. The
 
 The response contains enrollment/domain/policy IDs, UTC creation time, typed `decision` and complete `input_snapshot`. The decision records algorithm version, fingerprint, target/focus, shared whole-task `context_key`, action, support, complexity, rationale, requested/estimated/unused minutes, completion conditions and ordered steps. Each step pins its exact activity UUID, selected eligible components, skill, role, support, rationale and full catalog duration. All scope remains synthetic and no formal certification is inferred.
 
-Track A runs independently from content generation. Beginner and experienced evidence bands are internal fixtures; the public API reads stored initial `unknown` state until the Day 9 evidence contract exists. Missing evidence never implies low proficiency. See `13-day-7.md` for deterministic rules and fixture outputs.
+Track A runs independently from content generation. Beginner and experienced evidence bands are internal fixtures; the public API reads stored initial `unknown` state until Day 10 applies recorded evidence. Missing evidence never implies low proficiency. See `13-day-7.md` for deterministic rules and fixture outputs.
+
+## Day 9 attempts and evidence
+
+Learner operations are `POST`/`GET /api/v1/activities/{activity_id}/attempts` and `GET /api/v1/attempts/{attempt_id}`. Instructor operations are `GET /api/v1/attempts/{attempt_id}/review-content` and `POST /api/v1/attempts/{attempt_id}/review`. Missing keys return 401, denied roles 403, and cross-learner resources 404. No attempt, score or evidence edit/delete operation exists.
+
+Submission requires an enrollment-scoped UUID `idempotency_key` and a discriminated `response`: `{activity_type: selected_response, choice_id}` or `{activity_type: constructed_response, text}`. Text is trimmed, nonempty and at most 10,000 characters. Extra fields are rejected. The activity must belong to the learner and have an approved generation; unreviewed/rejected content returns 404. Frozen sequence/hash validation rejects corruption with 409. Wrong formats/unknown choices return 422; worked examples reject attempts with 409. New attempts on archived courses return 409.
+
+First submission returns 201 with Location. Same key/activity/normalized answer retries return 200 and the same attempt UUID; changed activity or answer under that enrollment/key returns 409. Retries return the current attempt representation, so a pending attempt may subsequently return its terminal score. Reads and exact retries remain available after archival. Collections return `{items, limit, offset}` with the standard bounds, ordered by `(created_at, id)`.
+
+Selected responses atomically save the attempt, `selected-response-v1` score and criterion evidence. Correct answers receive the frozen maximum; incorrect answers receive zero. Constructed responses return `pending_review` and `score: null`. Instructor review takes `{criteria: [{code, points}], note}` with each exact saved criterion once and strict integer points from zero through its maximum. Review creates an `instructor-rubric-v1` score and all evidence atomically. A different principal must review; self-review returns 403. Selected scores cannot be overridden via instructor review (409). Invalid rubric scoring returns 422. Instructor authority remains global for synthetic use.
+
+Terminal reviews accept identical same-reviewer/note/criterion-points retries (200), regardless of criterion order; conflicts return 409. Attempt reads expose the learner's answer and provisional evidence with scorer/rubric provenance, reviewer/note/UTC time, skill/domain, criterion points/maxima and part-task/whole-task kind. Private answer keys/expected responses remain confined to instructor content reads. No client-authoritative score is accepted. Any storage failure rolls back the new transaction and returns sanitized 503.
+
+Learner state is unchanged in Day 9; evidence application is Day 10. See [the Day 9 walkthrough](15-day-9.md) for full examples and limits.

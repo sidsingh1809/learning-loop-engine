@@ -69,6 +69,16 @@ Plan locking serializes generation retries; all steps commit atomically. No cont
 
 Migration 0008 is additive and preserves all thirteen prior tables. Populated Day 7 plans/steps survive its downgrade/re-upgrade, and Alembic checks model/schema agreement. Downgrade loses generation/content/review records and is tested only on the disposable database. Learner-state constraints remain initial-only.
 
+## Implemented in migration 0009
+
+- `attempts`: UUID, activity/plan/enrollment/domain lineage, UUID idempotency key, SHA-256 request hash, typed answer JSON, scoring method, internal submitting subject and UTC creation time. Unique `(enrollment_id, idempotency_key)` handles retries across an enrollment's plans; unique `(id, domain_version_id)` supports evidence lineage. Composite FKs bind the activity to the plan and the plan to the enrollment/domain. Added unique keys on existing activities/plans support those FKs.
+- `attempt_scores`: one terminal row per attempt (PK/FK `attempt_id`), scoring method, scorer/rubric version, synthetic review scope, nullable reviewer/note and UTC creation time. Checks require complete attribution for instructor scoring and null attribution for server scoring. Pending written attempts have no score row; status is derived, so scoring does not mutate submitted answers.
+- `evidence`: composite primary key `(attempt_id, criterion_code)` with case-sensitive criterion code; score FK plus same-domain attempt and skill composite FKs. Includes integer points/maxima, part-task/whole-task kind, provisional tier and false certification flag. Checks enforce nonnegative points within a positive maximum and the supported evidence scope. Criterion maxima and skill coverage are validated against the frozen rubric in the service.
+
+Attempts and scores/evidence are immutable through the API. Selected scoring commits all three together; later instructor scoring commits its score and complete evidence set together. Current locking reads preserve retry results under MySQL repeatable-read. Evidence reaches generation content/hash, plan context, published graph and exact policy/catalog versions through retained lineage. No learner-state constraint is relaxed; Day 10 will introduce the evidence application transaction and state history.
+
+Migration 0009 preserves all fifteen previous tables and leaves migrations 0001–0008 unchanged. Tests verify populated Day 8 rows across downgrade/re-upgrade and Alembic schema agreement; complete local row hashes also match. Downgrade drops all new attempts/scores/evidence before removing the added lineage keys and is verified only in the disposable database. Authorization, terminal review, self-review denial, JSON shape and content integrity remain service invariants; direct operator SQL can bypass them.
+
 ## Proposed next migrations
 
 These tables are a design, not an implemented database. We will refine each with its endpoint and tests instead of installing an unvalidated full schema at once.
@@ -83,8 +93,7 @@ These tables are a design, not an implemented database. We will refine each with
 | Policy extensions | Extend implemented policy versions with decision, mastery and spacing schemas | Immutable versions with reviewed category-specific contracts; no invented thresholds |
 | Learner state updates | Extend implemented enrollment-scoped states with reviewed bands, evidence provenance and update history | Replace initial-only check with the evidence transaction contract; preserve unknown distinct from low band; revision supports concurrency |
 | Activity extensions | Standalone reviewed rubric versions, normalized multi-skill evidence mappings and generation job FK on existing frozen activities | Day 8 stores typed content/rubric snapshots and target/focus alignment; richer authoring and provider jobs remain planned |
-| Attempts | `attempts(id, activity_id, learner_id, idempotency_key, request_hash, response_json, submitted_at, status)` | Unique caller/operation/idempotency key; mismatched replays return conflict; index learner/submission time |
-| Evidence | `evidence(id, attempt_id, skill_id, rubric_version_id, scorer_version, evidence_kind, score, max_score, eligible, reviewed_by)` | Unique attempt/skill/scorer revision; nonnegative score, positive max, score <= max; source lineage mandatory |
+| Evidence extensions | Versioned regrading/corrections, standalone rubric revisions and explicit state-application policy | Preserve original terminal scores and append attributed revisions; no evidence rewriting |
 | State history | `state_events(id, learner_id, skill_id, evidence_id, policy_version_id, previous_state_json, next_state_json, created_at)` | Append-only record, unique evidence/policy update as appropriate; provenance and reproducibility |
 | Practice schedule | `review_schedule(learner_id, skill_id, due_at, policy_version_id)`; `generation_history(id, learner_id, activity_id, context_key, generated_at)` | Index due date and learner/skill; spacing policy experimental until evaluated |
 | Integration | `generation_jobs(id, status, attempts, provider_metadata_json, error_code)`; `outbox_events(id, event_type, payload_json, status, created_at)` | Transactional outbox with bounded retries; no raw secrets in payloads |

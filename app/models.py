@@ -245,6 +245,7 @@ class LoopPlan(Base):
                              name="fk_plan_focus_domain"),
         UniqueConstraint("enrollment_id", "input_fingerprint", name="uq_plan_enrollment_input"),
         UniqueConstraint("id", "domain_version_id", name="uq_plan_id_domain"),
+        UniqueConstraint("id", "enrollment_id", "domain_version_id", name="uq_plan_id_enrollment_domain"),
         CheckConstraint("time_budget_minutes > 0 AND time_budget_minutes <= 180", name="ck_plan_budget"),
         CheckConstraint("estimated_minutes > 0 AND estimated_minutes <= time_budget_minutes", name="ck_plan_duration"),
         {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
@@ -323,6 +324,7 @@ class Activity(Base):
         ForeignKeyConstraint(["generation_id", "loop_plan_id"], ["activity_generations.id", "activity_generations.loop_plan_id"], name="fk_activity_generation_plan"),
         ForeignKeyConstraint(["loop_plan_id", "position"], ["loop_steps.loop_plan_id", "loop_steps.position"], name="fk_activity_plan_step"),
         UniqueConstraint("generation_id", "position", name="uq_activity_generation_step"),
+        UniqueConstraint("id", "loop_plan_id", name="uq_activity_id_plan"),
         CheckConstraint("position > 0", name="ck_activity_position"),
         {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
     )
@@ -331,3 +333,66 @@ class Activity(Base):
     loop_plan_id: Mapped[str] = mapped_column(String(36), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+
+class Attempt(Base):
+    __tablename__ = "attempts"
+    __table_args__ = (
+        ForeignKeyConstraint(["activity_id", "loop_plan_id"], ["activities.id", "activities.loop_plan_id"], name="fk_attempt_activity_plan"),
+        ForeignKeyConstraint(["loop_plan_id", "enrollment_id", "domain_version_id"],
+                             ["loop_plans.id", "loop_plans.enrollment_id", "loop_plans.domain_version_id"], name="fk_attempt_plan_enrollment_domain"),
+        UniqueConstraint("enrollment_id", "idempotency_key", name="uq_attempt_enrollment_key"),
+        UniqueConstraint("id", "domain_version_id", name="uq_attempt_id_domain"),
+        CheckConstraint("scoring_method IN ('selected_response', 'instructor_review')", name="ck_attempt_method"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    activity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    loop_plan_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    enrollment_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    domain_version_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(36), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    response: Mapped[dict] = mapped_column(JSON, nullable=False)
+    scoring_method: Mapped[str] = mapped_column(String(32), nullable=False)
+    submitted_by: Mapped[str] = mapped_column(String(128, collation="utf8mb4_bin"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+
+class AttemptScore(Base):
+    __tablename__ = "attempt_scores"
+    __table_args__ = (
+        CheckConstraint("(scoring_method = 'selected_response' AND reviewed_by IS NULL AND review_note IS NULL) OR "
+                        "(scoring_method = 'instructor_review' AND reviewed_by IS NOT NULL AND review_note IS NOT NULL)", name="ck_score_attribution"),
+        CheckConstraint("review_scope = 'synthetic_only'", name="ck_score_scope"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+    attempt_id: Mapped[str] = mapped_column(ForeignKey("attempts.id"), primary_key=True)
+    scoring_method: Mapped[str] = mapped_column(String(32), nullable=False)
+    scorer_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    rubric_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    review_scope: Mapped[str] = mapped_column(String(32), nullable=False, default="synthetic_only")
+    reviewed_by: Mapped[Optional[str]] = mapped_column(String(128, collation="utf8mb4_bin"), nullable=True)
+    review_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+
+class Evidence(Base):
+    __tablename__ = "evidence"
+    __table_args__ = (
+        ForeignKeyConstraint(["attempt_id", "domain_version_id"], ["attempts.id", "attempts.domain_version_id"], name="fk_evidence_attempt_domain"),
+        ForeignKeyConstraint(["skill_id", "domain_version_id"], ["skills.id", "skills.domain_version_id"], name="fk_evidence_skill_domain"),
+        CheckConstraint("max_points > 0 AND points >= 0 AND points <= max_points", name="ck_evidence_points"),
+        CheckConstraint("evidence_kind IN ('part_task', 'whole_task')", name="ck_evidence_kind"),
+        CheckConstraint("evidence_tier = 'provisional' AND formal_certification = 0", name="ck_evidence_provisional"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+    attempt_id: Mapped[str] = mapped_column(ForeignKey("attempt_scores.attempt_id"), primary_key=True)
+    criterion_code: Mapped[str] = mapped_column(String(32, collation="utf8mb4_bin"), primary_key=True)
+    domain_version_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    skill_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    points: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_points: Mapped[int] = mapped_column(Integer, nullable=False)
+    evidence_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    evidence_tier: Mapped[str] = mapped_column(String(16), nullable=False, default="provisional")
+    formal_certification: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

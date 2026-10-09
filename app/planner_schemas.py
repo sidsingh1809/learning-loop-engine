@@ -1,4 +1,4 @@
-"""Track A contracts. Evidence bands here are internal fixtures until Day 9."""
+"""Track A contracts. Observed bands remain internal fixtures until Day 10 state application."""
 from typing import Literal
 from uuid import UUID
 

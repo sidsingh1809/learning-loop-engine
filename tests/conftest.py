@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import get_engine, get_session
 from app.main import app
-from app.models import (Activity, ActivityGeneration, ActivityVariant, ComponentActivityMapping, PolicyVersion,
+from app.models import (Attempt, AttemptScore, Evidence, Activity, ActivityGeneration, ActivityVariant, ComponentActivityMapping, PolicyVersion,
                         Competency, Course, DomainVersion, Enrollment, Learner, LearnerSkillState, LoopPlan, LoopStep, Skill, SkillPrerequisite)
 
-CLEANUP_MODELS = (Activity, ActivityGeneration, LoopStep, LoopPlan, ComponentActivityMapping, ActivityVariant, PolicyVersion,
+CLEANUP_MODELS = (Evidence, AttemptScore, Attempt, Activity, ActivityGeneration, LoopStep, LoopPlan, ComponentActivityMapping, ActivityVariant, PolicyVersion,
                   LearnerSkillState, Enrollment, Learner, SkillPrerequisite, Skill, Competency, DomainVersion, Course)
 
 TEST_API_KEY = "synthetic-test-key-32-characters-long"
@@ -204,6 +204,36 @@ def mysql_engine():
         command.upgrade(config, "head")
         with get_engine().connect() as connection:
             for table, expected in before_day8.items():
+                assert connection.execute(text("SELECT * FROM " + table)).mappings().all() == expected
+        command.check(config)
+        # Day 9 preserves all populated Day 8 records; new evidence is intentionally
+        # lost on downgrade, which is exercised only in this disposable database.
+        with get_engine().begin() as connection:
+            connection.execute(ActivityGeneration.__table__.insert().values(
+                id="migration-generation", loop_plan_id="migration-plan", generator_version="track-b-template-v1",
+                template_version="positive-sales-v1", content_hash="b" * 64, created_by="migration-subject"))
+            connection.execute(Activity.__table__.insert().values(
+                id="migration-activity", generation_id="migration-generation", loop_plan_id="migration-plan",
+                position=1, payload={"migration": "preserve exact frozen content"}))
+            day8_tables = (*day7_tables, "activity_generations", "activities")
+            before_day9 = {table: connection.execute(text("SELECT * FROM " + table)).mappings().all() for table in day8_tables}
+            connection.execute(Attempt.__table__.insert().values(
+                id="migration-attempt", activity_id="migration-activity", loop_plan_id="migration-plan",
+                enrollment_id="migration-enrollment", domain_version_id="00000000-0000-0000-0000-000000000003",
+                idempotency_key="migration-key", request_hash="c" * 64, response={"migration": "disposable"},
+                scoring_method="selected_response", submitted_by="migration-subject"))
+            connection.execute(AttemptScore.__table__.insert().values(
+                attempt_id="migration-attempt", scoring_method="selected_response", scorer_version="selected-response-v1",
+                rubric_version="synthetic-rubric-v1"))
+            connection.execute(Evidence.__table__.insert().values(
+                attempt_id="migration-attempt", criterion_code="FOCUS",
+                domain_version_id="00000000-0000-0000-0000-000000000003",
+                skill_id="00000000-0000-0000-0000-000000000005", points=1, max_points=1, evidence_kind="part_task"))
+        command.downgrade(config, "0008_generation")
+        assert not {"attempts", "attempt_scores", "evidence"} & set(inspect(get_engine()).get_table_names())
+        command.upgrade(config, "head")
+        with get_engine().connect() as connection:
+            for table, expected in before_day9.items():
                 assert connection.execute(text("SELECT * FROM " + table)).mappings().all() == expected
         command.check(config)
         with get_engine().connect() as connection:

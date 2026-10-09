@@ -156,6 +156,26 @@ The live HTTP walkthrough reused saved plan `d4022c31-de90-4a82-bffa-3f9b9cda8bc
 
 The first template covers the synthetic DEBUGGING target and named routine programming prerequisites; it does not generate arbitrary course content. Programmatic synthetic review is not substantive expert/university approval. No attempts, scoring, evidence/state updates, AI provider calls or real learner data were introduced.
 
-## Next-session handoff
+## Day 8 handoff (historical)
 
 Start Day 9 in `04-daily-plan.md`: add immutable attempts and authoritative selected-response scoring, plus an instructor review path for constructed responses. Bind evidence to approved frozen activity/rubric and policy versions; reject client-authoritative scores and preserve learner isolation and whole-task evidence boundaries. Transactional learner-state update and full-loop behavior remain Day 10. Keep the single-model-first provider integration direction for Days 12–13.
+
+## Day 9 completed — October 9, 2026
+
+Time spent: approximately 5 hours, reported by the developer.
+
+User verification: the developer reported all Day 9 Swagger tests completed on October 9, 2026, after following the submission, retry/validation, instructor scoring and learner-access walkthrough.
+
+Implemented five attempt operations: learner submit/list/read, instructor private review-content and terminal rubric scoring. Learners submit typed selected or written answers with enrollment-scoped UUID idempotency keys; client-authoritative scores and provenance overrides are rejected. Attempts retain immutable normalized answers. Server `selected-response-v1` awards frozen criterion maxima or zero; written responses remain pending until a different instructor principal scores every saved criterion with bounded integer points. `instructor-rubric-v1` supports partial credit and stable terminal retries.
+
+Migration `0009_attempts` adds attempts, terminal scores and criterion evidence, with composite activity/plan/enrollment/domain lineage, unique retry keys and MySQL point/scope constraints. Evidence preserves exact skill, rubric/scorer versions and policy/content provenance through frozen activity/plan links. Part-task evidence remains distinct from whole-task evidence; neither grants formal certification. Selected attempts and their scores/evidence commit together; instructor scoring commits all new evidence together while preserving the submitted answer. Failure rolls back the new transaction. Reads preserve private rubric keys, ownership and review boundaries.
+
+Evidence: **410 tests passed** in Python 3.9.21 against MySQL 8.4 with no skips (16.75 seconds). Tests cover correct/incorrect scoring, partial credit, invalid criteria, role/object isolation, self-review, atomic rollback, retry/concurrent conflicts, archival, corrupted content, SQL constraints and populated Day 8 migration preservation. All fifteen pre-existing local table counts and complete row hashes matched across the additive migration.
+
+The live HTTP demo reused the retained plan, approved generation and synthetic credentials. It saved attempt `32bcf5af-a8d4-4fc1-b292-dddf71335c47`, demonstrated pending submission followed by instructor scoring, retained two whole-task evidence rows, and verified stable retries/reads, score-field rejection, learner isolation, changed retry conflicts and unchanged learner state. Selected-response scoring is verified through pure and disposable-MySQL beginner-plan fixtures; the retained unknown-state plan does not select automaticity practice. The API/database remain healthy locally. See `15-day-9.md` and `verification.md`.
+
+Learner-state bands, counts and revisions remain unchanged pending Day 10. Programmatic synthetic instructor scoring does not establish expert/university approval or learning efficacy. Instructor assignment restrictions, regrading, continuity and provider integration remain later work. No AI provider call, code execution, formal certification or real learner data was introduced.
+
+## Next-session handoff
+
+Start Day 10 in `04-daily-plan.md`: define an explicit versioned provisional state-update policy and apply immutable evidence transactionally with history/provenance. Preserve unknown versus observed evidence, part-task versus whole-task boundaries, and deterministic plan snapshots. Verify that a scored attempt changes eligible state and the next plan, while submission/review retries cannot apply evidence twice. Day 9 already prevents duplicate attempt/score/evidence storage; Day 10 must extend that guarantee to state application, including existing pending/scored records. Re-estimate after the complete closed-loop demonstration. Keep first-provider integration scheduled for Days 12–13.

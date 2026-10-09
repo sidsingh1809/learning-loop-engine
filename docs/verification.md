@@ -1,5 +1,29 @@
 # Verification log
 
+## Day 9 — October 9, 2026
+
+User verification: the developer reported all Day 9 Swagger tests completed on October 9, 2026, following the submission, retry/validation, instructor scoring and learner-access walkthrough. This is user-reported verification; individual response payloads were not supplied in chat.
+
+| Check | Measured result |
+|---|---|
+| `docker compose --profile test run --build --rm tests python -m pytest -q --disable-warnings --maxfail=1` | 410 passed; no skips; 16.75 seconds |
+| Supplemental host suite | 333 passed; 77 MySQL checks deselected; 1.82 seconds |
+| Runtime/database | Python 3.9.21; MySQL 8.4; local head `0009_attempts` |
+| Submission/scoring | Immutable typed answers; correct/incorrect server scoring; written pending review; exact rubric coverage, partial credit and bounded integer points; private scoring keys withheld |
+| Authorization | Learner-only submission/reads, cross-learner 404, spoofing denial, instructor-only review, multi-role self-review denial, selected-score override rejection |
+| Retries/concurrency | One attempt under three identical concurrent submissions; one score/evidence set under three identical reviews; changed concurrent submissions/reviews produce one success and conflicts |
+| Atomicity/integrity | Selected evidence failure leaves no new attempt/score/evidence; instructor evidence failure preserves pending attempt; MySQL score bounds/domain/lineage constraints pass; invalid/corrupted activity cannot create evidence |
+| Migration lifecycle | Fresh/base and prior lifecycle checks; populated Day 8 rows survive 0009 downgrade/re-upgrade; Alembic schema comparison passes |
+| Local migration preservation | All 15 prior table counts and complete row hashes match before/after migration |
+| Live HTTP walkthrough | Saved attempt `32bcf5af-a8d4-4fc1-b292-dddf71335c47`; pending → instructor-scored; read/list/retry, 422 score rejection, 404 isolation, 403 review denial, 409 changed retries and unchanged state pass |
+| Local service | `docker compose up --build -d --wait api` completed; API/database healthy; one attempt, one terminal score and two whole-task evidence rows retained |
+
+Preserved tables contained six courses, four domains, four competencies, thirteen skills, five prerequisites, two learners, two enrollments, twelve unknown state rows, eight policies, eleven activity variants, twenty-five component mappings, two plans, four plan steps, one generation and two delivered activities. Only counts/hashes were emitted for preservation checking. The HTTP demo then added one synthetic attempt with its score and evidence through APIs, reusing existing credentials and approved content.
+
+All 410 tests passed on the first complete Day 9 MySQL run. Pure and disposable-MySQL fixtures cover selected responses using internal developing-band plans; they never modify live learner bands. The live retained unknown-state plan has no selected question, so its HTTP demonstration follows constructed-response review. The saved evidence is provisional synthetic data, not substantive expert grading or university approval.
+
+Learner-state rows, counts and revisions remain unchanged. Evidence application, provisional mastery policy and next-plan adaptation remain Day 10. No AI provider call, code execution, formal certification or real learner data is included. Instructor authority remains global in this development prototype; assignment-scoped university access remains future work. Downgrade deletes Day 9 evidence and is exercised only in the disposable database. See [Day 9](15-day-9.md) for the complete walkthrough and boundaries.
+
 ## Day 8 — October 9, 2026
 
 User verification: the developer reported all Day 8 tests completed on October 9, 2026. Shared Swagger responses confirm instructor candidate inspection, unchanged approval retry, and learner delivery of both activities with private rubric answers omitted.
