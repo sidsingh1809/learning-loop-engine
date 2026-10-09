@@ -2,13 +2,13 @@
 
 An API-first university learning system, developed in daily, testable increments. The target loop is: identify a learning gap → choose an instructional sequence → deliver activities → collect evidence → update the learner model → choose again.
 
-**Current milestone: Day 7 deterministic next-action planning.** Implemented: MySQL course lifecycle, domain authoring and immutable published graphs, pseudonymous learners and isolated unknown state, versioned activity definitions with 4C/ID mappings, learning-science/safety policies, instructor-role review for synthetic use, approved-only catalog reads, development authorization, health checks, OpenAPI, migrations and automated tests. Explainable plans now select prerequisite focus, support, complexity and a connected sequence within a time budget; activity generation remains planned.
+**Current milestone: Day 8 template activity generation.** Implemented: MySQL course lifecycle, domain authoring and immutable published graphs, pseudonymous learners and isolated unknown state, versioned activity definitions with 4C/ID mappings, learning-science/safety policies, instructor-role review for synthetic use, approved-only catalog reads, development authorization, health checks, OpenAPI, migrations and automated tests. Explainable plans now select prerequisite focus, support, complexity and a connected sequence within a time budget; Track B now generates validated template activities from saved plans, with instructor review before learner delivery.
 
 ## Start here
 
 1. Read [the scope and unresolved decisions](docs/01-scope.md).
 2. Follow [the daily development plan](docs/04-daily-plan.md). It assumes one developer working 3–6 hours daily, with two hours already spent on Day 1.
-3. Run [the Day 7 walkthrough](docs/13-day-7.md); [Day 6](docs/12-day-6.md) covers catalogs, [Day 5](docs/11-day-5.md) covers learners, [Day 4](docs/10-day-4.md) covers publishing, [Day 3](docs/09-day-3.md) covers domain authoring, [Day 2](docs/06-day-2.md) covers course lifecycle and [Day 1](docs/05-day-1.md) covers the foundation.
+3. Run [the Day 8 walkthrough](docs/14-day-8.md); [Day 7](docs/13-day-7.md) covers planning, [Day 6](docs/12-day-6.md) covers catalogs, [Day 5](docs/11-day-5.md) covers learners, [Day 4](docs/10-day-4.md) covers publishing, [Day 3](docs/09-day-3.md) covers domain authoring, [Day 2](docs/06-day-2.md) covers course lifecycle and [Day 1](docs/05-day-1.md) covers the foundation.
 4. Use [the progress log](docs/daily-updates.md) for daily reporting.
 
 ## Run locally
@@ -40,6 +40,9 @@ python3 scripts/demo_day6.py
 .venv/bin/python scripts/demo_day7.py
 .venv/bin/python scripts/demo_day7.py --course-id 902a24a1-efa5-4172-a261-527f89e03c63 --domain-version-id 3288966b-a0cf-440b-8520-582f52cc88fa
 
+.venv/bin/python scripts/demo_day8.py
+.venv/bin/python scripts/demo_day8.py --plan-id d4022c31-de90-4a82-bffa-3f9b9cda8bc9
+
 # Confirm exact runtime and inspect service state.
 docker compose exec api python --version
 docker compose ps
@@ -55,7 +58,7 @@ Host development is optional: install Python **3.9.21**, create `.venv`, install
 | Method | Route | Purpose |
 |---|---|---|
 | GET | `/health/live` | Process health, no database required |
-| GET | `/health/ready` | All thirteen migrated application tables are reachable |
+| GET | `/health/ready` | All fifteen migrated application tables are reachable |
 | POST | `/api/v1/courses` | Create a course; returns 201 and Location |
 | GET | `/api/v1/courses?limit=20&offset=0&status=active` | List courses, ordered by code; supports active/archived/all |
 | GET | `/api/v1/courses/{uuid}` | Retrieve one course |
@@ -74,6 +77,8 @@ Day 6 adds twelve catalog operations under `/api/v1/catalog`: create/list/read i
 
 Day 7 adds `POST /api/v1/learners/{learner_id}/loop-plans` and `GET /api/v1/loop-plans/{plan_id}`. Plans use stored enrollment state, a requested target, exact approved policy IDs and a strict 1–180 minute budget. Responses preserve the input snapshot, deterministic rationale, focus/support, catalog IDs and connected steps. Identical input retries return the saved plan (200); first creation returns 201 and Location. Unknown remains distinct from low knowledge. Evidence-bearing beginner/experienced profiles are internal fixtures until Day 9 implements authoritative state updates. See [Day 7](docs/13-day-7.md).
 
+Day 8 adds five operations: learner `POST /api/v1/loop-plans/{plan_id}/generations` with `{}`, learner `GET /api/v1/activity-generations/{generation_id}`, instructor `GET /api/v1/activity-generations/{generation_id}/review-content` and `POST /api/v1/activity-generations/{generation_id}/review`, and learner `GET /api/v1/activities/{activity_id}`. Generation saves an ordered candidate atomically (201), reuses it on retry (200), and withholds activity content until instructor approval. Rubrics align target/focus skills; scoring keys stay private. The first template covers the synthetic programming DEBUGGING pilot. See [Day 8](docs/14-day-8.md) for supported content and review limits.
+
 ## Project map
 
 ```text
@@ -87,7 +92,7 @@ compose.yaml          Local app and separate disposable test database
 requirements*.txt     Pinned runtime and test dependencies
 ```
 
-See [architecture](docs/02-architecture.md) and [schema design](docs/03-schema.md) for the intended system. The thirteen implemented tables are `courses`, `domain_versions`, `competencies`, `skills`, `skill_prerequisites`, `learners`, `enrollments`, `learner_skill_states`, `policy_versions`, `activity_variants`, `component_activity_mappings`, `loop_plans` and `loop_steps`.
+See [architecture](docs/02-architecture.md) and [schema design](docs/03-schema.md) for the intended system. The fifteen implemented tables are `courses`, `domain_versions`, `competencies`, `skills`, `skill_prerequisites`, `learners`, `enrollments`, `learner_skill_states`, `policy_versions`, `activity_variants`, `component_activity_mappings`, `loop_plans`, `loop_steps`, `activity_generations` and `activities`.
 
 ## Engineering constraints
 

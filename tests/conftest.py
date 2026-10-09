@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import get_engine, get_session
 from app.main import app
-from app.models import (ActivityVariant, ComponentActivityMapping, PolicyVersion,
+from app.models import (Activity, ActivityGeneration, ActivityVariant, ComponentActivityMapping, PolicyVersion,
                         Competency, Course, DomainVersion, Enrollment, Learner, LearnerSkillState, LoopPlan, LoopStep, Skill, SkillPrerequisite)
 
-CLEANUP_MODELS = (LoopStep, LoopPlan, ComponentActivityMapping, ActivityVariant, PolicyVersion,
+CLEANUP_MODELS = (Activity, ActivityGeneration, LoopStep, LoopPlan, ComponentActivityMapping, ActivityVariant, PolicyVersion,
                   LearnerSkillState, Enrollment, Learner, SkillPrerequisite, Skill, Competency, DomainVersion, Course)
 
 TEST_API_KEY = "synthetic-test-key-32-characters-long"
@@ -178,6 +178,32 @@ def mysql_engine():
         command.upgrade(config, "head")
         with get_engine().connect() as connection:
             for table, expected in before_day7.items():
+                assert connection.execute(text("SELECT * FROM " + table)).mappings().all() == expected
+        command.check(config)
+        # Day 8 preserves populated Day 7 plans, ordered steps, catalogs and states.
+        with get_engine().begin() as connection:
+            connection.execute(LoopPlan.__table__.insert().values(
+                id="migration-plan", enrollment_id="migration-enrollment",
+                domain_version_id="00000000-0000-0000-0000-000000000003",
+                target_skill_id="00000000-0000-0000-0000-000000000005",
+                focus_skill_id="00000000-0000-0000-0000-000000000005",
+                learning_science_policy_id=str(fixture.learning_science_policy.id),
+                safety_policy_id=str(fixture.safety_policy.id), input_fingerprint="a" * 64,
+                time_budget_minutes=25, estimated_minutes=10, decision={"migration": "preserve"},
+                input_snapshot=fixture.model_dump(mode="json")))
+            connection.execute(LoopStep.__table__.insert().values(
+                loop_plan_id="migration-plan", position=1,
+                domain_version_id="00000000-0000-0000-0000-000000000003",
+                skill_id="00000000-0000-0000-0000-000000000005",
+                activity_variant_id=str(fixture.activities[-1].id), role="whole_task",
+                components=["learning_tasks"], support_level="minimal", estimated_minutes=10, rationale="Preserve step"))
+            day7_tables = (*day6_tables, "loop_plans", "loop_steps")
+            before_day8 = {table: connection.execute(text("SELECT * FROM " + table)).mappings().all() for table in day7_tables}
+        command.downgrade(config, "0007_planner")
+        assert not {"activity_generations", "activities"} & set(inspect(get_engine()).get_table_names())
+        command.upgrade(config, "head")
+        with get_engine().connect() as connection:
+            for table, expected in before_day8.items():
                 assert connection.execute(text("SELECT * FROM " + table)).mappings().all() == expected
         command.check(config)
         with get_engine().connect() as connection:

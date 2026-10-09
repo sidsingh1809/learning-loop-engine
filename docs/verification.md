@@ -1,5 +1,27 @@
 # Verification log
 
+## Day 8 — October 9, 2026
+
+User verification: the developer reported all Day 8 tests completed on October 9, 2026. Shared Swagger responses confirm instructor candidate inspection, unchanged approval retry, and learner delivery of both activities with private rubric answers omitted.
+
+| Check | Measured result |
+|---|---|
+| `docker compose --profile test run --build --rm tests` | 352 passed, no skips; final run 13.78 seconds, Python 3.9.21 / MySQL 8.4 |
+| Host supplemental suite | 290 passed before final five MySQL checks were added; Python 3.9.13 |
+| Pure template walkthrough | Unknown: context → return, 16 minutes; beginner: context → routine practice → return, 19 minutes; experienced: whole task, 10 minutes |
+| Migration lifecycle and Alembic comparison | Fresh/base lifecycle and populated Day 7 downgrade/re-upgrade passed; models match migration 0008 |
+| Local additive migration | All 13 pre-existing table row hashes matched; two new empty tables before demo |
+| Live `scripts/demo_day8.py --plan-id d4022c31-de90-4a82-bffa-3f9b9cda8bc9` | Generation 201; identical retry/read 200; learner isolation 404; unauthorized review 403; content override 422; pre-approval content 404; instructor inspection/review/retry and approved delivery 200 |
+| Local API after migration | Ready and live; exact container runtime Python 3.9.21 |
+
+The suite covers frozen sequence replay, target/focus and rubric alignment, policy/catalog provenance, full durations, return after support, explicit pilot limits, malformed output, duplicate/missing choice keys, rubric total/certification violations, private answer projection, API input/security contracts, concurrent generation and conflicting reviews, insert/review rollback, self-review denial, approved-only delivery, corruption withholding, archival behavior, composite SQL lineage and review constraints.
+
+Pre/post migration snapshots retained six courses, four domains, four competencies, thirteen skills, five prerequisites, two learners, two enrollments, twelve unknown states, eight policies, eleven activity definitions, twenty-five mappings, two plans and four plan steps. Complete row hashes matched for every table before adding Day 8 demonstration records; migration 0008 adds only `activity_generations` and `activities`.
+
+Live generation `f08a63e4-dc44-4f0d-a28d-a6cca1f4cb9d` belongs to the retained Day 7 plan and contains worked example `7854a5f9-9aec-4403-a2d5-b4fa646cf557` and whole-task return `28b4b9d9-e7a4-44b1-acf6-c2e59b518ae7`. Both use the same positive-sales debugging scenario and pinned target/focus. Development-instructor approval is a programmatic synthetic template/rubric inspection, not expert or university review. Every learner state matched its pre-demo value. Credentials and private scoring content were not printed.
+
+No attempt scoring, evidence/state update, AI generation or real learner data was used. The template intentionally supports only the synthetic DEBUGGING pilot and named prerequisites. Content/rubric correctness, educational efficacy and university approval remain separate review gates. The API/database are left running; the new API contract is in local Swagger and [the Day 8 walkthrough](14-day-8.md).
+
 ## Day 7 — October 8, 2026
 
 User verification: terminal and Swagger walkthrough completed, as reported by the developer on October 8, 2026.

@@ -288,3 +288,46 @@ class LoopStep(Base):
     support_level: Mapped[str] = mapped_column(String(16), nullable=False)
     estimated_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class ActivityGeneration(Base):
+    __tablename__ = "activity_generations"
+    __table_args__ = (
+        UniqueConstraint("loop_plan_id", "generator_version", name="uq_generation_plan_version"),
+        UniqueConstraint("id", "loop_plan_id", name="uq_generation_id_plan"),
+        CheckConstraint("review_status IN ('draft', 'approved', 'rejected')", name="ck_generation_status"),
+        CheckConstraint("review_scope = 'synthetic_only'", name="ck_generation_scope"),
+        CheckConstraint("(review_status = 'draft' AND reviewed_by IS NULL AND reviewed_at IS NULL AND review_note IS NULL) OR "
+                        "(review_status IN ('approved', 'rejected') AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL "
+                        "AND review_note IS NOT NULL AND reviewed_by <> created_by)", name="ck_generation_review"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    loop_plan_id: Mapped[str] = mapped_column(ForeignKey("loop_plans.id"), nullable=False)
+    generator_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    template_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(128, collation="utf8mb4_bin"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+    review_status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    review_scope: Mapped[str] = mapped_column(String(32), nullable=False, default="synthetic_only")
+    reviewed_by: Mapped[Optional[str]] = mapped_column(String(128, collation="utf8mb4_bin"), nullable=True)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    review_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    activities: Mapped[list["Activity"]] = relationship(order_by="Activity.position")
+
+
+class Activity(Base):
+    __tablename__ = "activities"
+    __table_args__ = (
+        ForeignKeyConstraint(["generation_id", "loop_plan_id"], ["activity_generations.id", "activity_generations.loop_plan_id"], name="fk_activity_generation_plan"),
+        ForeignKeyConstraint(["loop_plan_id", "position"], ["loop_steps.loop_plan_id", "loop_steps.position"], name="fk_activity_plan_step"),
+        UniqueConstraint("generation_id", "position", name="uq_activity_generation_step"),
+        CheckConstraint("position > 0", name="ck_activity_position"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    generation_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    loop_plan_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)

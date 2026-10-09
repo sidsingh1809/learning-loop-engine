@@ -13,6 +13,7 @@ from app.database import get_session
 from app.domains import router as domains_router
 from app.learners import router as learners_router
 from app.plans import router as plans_router
+from app.activities import router as activities_router
 
 
 @asynccontextmanager
@@ -23,8 +24,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Learning Loop Engine API",
-    version="0.7.0",
-    description="Day 7 deterministic, explainable next-action plans over published domains and reviewed synthetic catalogs. Activity generation remains planned.",
+    version="0.8.0",
+    description="Day 8 validated template activity generation from saved plans with synthetic instructor review.",
     lifespan=lifespan,
 )
 app.include_router(courses_router, prefix="/api/v1")
@@ -32,6 +33,7 @@ app.include_router(domains_router, prefix="/api/v1")
 app.include_router(learners_router, prefix="/api/v1")
 app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(plans_router, prefix="/api/v1")
+app.include_router(activities_router, prefix="/api/v1")
 
 
 @app.exception_handler(SQLAlchemyError)
@@ -61,4 +63,6 @@ def ready(session: Session = Depends(get_session)):
     session.execute(text("SELECT activity_variant_id, component, rationale FROM component_activity_mappings LIMIT 1"))
     session.execute(text("SELECT id, enrollment_id, input_fingerprint, input_snapshot, decision FROM loop_plans LIMIT 1"))
     session.execute(text("SELECT loop_plan_id, position, activity_variant_id, components FROM loop_steps LIMIT 1"))
+    session.execute(text("SELECT id, loop_plan_id, generator_version, content_hash, review_status FROM activity_generations LIMIT 1"))
+    session.execute(text("SELECT id, generation_id, loop_plan_id, position, payload FROM activities LIMIT 1"))
     return {"status": "ready"}

@@ -60,6 +60,15 @@ Planning locks course → domain → enrollment → states, followed by a curren
 
 Migration 0007 is additive; migrations 0001–0006 remain unchanged. Downgrade loses plans/steps and is tested only in the disposable database. Populated reviewed catalog and learner rows survive its downgrade/re-upgrade; Alembic checks model/schema agreement.
 
+## Implemented in migration 0008
+
+- `activity_generations`: UUID, retained plan FK, generator/template versions, canonical full-sequence SHA-256, creator and UTC creation time, attributed review status/scope/reviewer/time/note. Unique `(loop_plan_id, generator_version)` prevents duplicate template generations; unique `(id, loop_plan_id)` supports child lineage. Review checks retain draft-null metadata and a different, fully attributed terminal reviewer; scope is synthetic-only.
+- `activities`: UUID, generation/plan/position, validated step/content/rubric `payload JSON`. Unique `(generation_id, position)`. Composite FKs bind both generation and step to the same saved plan. Positive positions and exact step existence are enforced by MySQL; JSON shape and plan/content consistency are service invariants.
+
+Plan locking serializes generation retries; all steps commit atomically. No content edit/delete API exists. Instructor review atomically approves/rejects the complete sequence; approved-only learner reads remove private scoring keys. Validation replays the pinned plan, checks ordering, skills, components, support, durations, format, context, rubric and policy IDs, and verifies the content hash before approval/delivery. Catalog approval does not automatically approve newly generated content. The synthetic template/rubric remains provisional.
+
+Migration 0008 is additive and preserves all thirteen prior tables. Populated Day 7 plans/steps survive its downgrade/re-upgrade, and Alembic checks model/schema agreement. Downgrade loses generation/content/review records and is tested only on the disposable database. Learner-state constraints remain initial-only.
+
 ## Proposed next migrations
 
 These tables are a design, not an implemented database. We will refine each with its endpoint and tests instead of installing an unvalidated full schema at once.
@@ -73,7 +82,7 @@ These tables are a design, not an implemented database. We will refine each with
 | Catalog composition extensions | `experience_patterns(id, version, steps_json, review_status)` | Validated connected step schemas referencing exact approved variants |
 | Policy extensions | Extend implemented policy versions with decision, mastery and spacing schemas | Immutable versions with reviewed category-specific contracts; no invented thresholds |
 | Learner state updates | Extend implemented enrollment-scoped states with reviewed bands, evidence provenance and update history | Replace initial-only check with the evidence transaction contract; preserve unknown distinct from low band; revision supports concurrency |
-| Activities | `activities(id, loop_step_id, version, content_json, rubric_version_id, generation_job_id, review_status, content_hash)`; `activity_skills(activity_id, skill_id, evidence_role)` | Frozen delivered activity version; map multi-skill whole tasks; candidate and approved states distinct |
+| Activity extensions | Standalone reviewed rubric versions, normalized multi-skill evidence mappings and generation job FK on existing frozen activities | Day 8 stores typed content/rubric snapshots and target/focus alignment; richer authoring and provider jobs remain planned |
 | Attempts | `attempts(id, activity_id, learner_id, idempotency_key, request_hash, response_json, submitted_at, status)` | Unique caller/operation/idempotency key; mismatched replays return conflict; index learner/submission time |
 | Evidence | `evidence(id, attempt_id, skill_id, rubric_version_id, scorer_version, evidence_kind, score, max_score, eligible, reviewed_by)` | Unique attempt/skill/scorer revision; nonnegative score, positive max, score <= max; source lineage mandatory |
 | State history | `state_events(id, learner_id, skill_id, evidence_id, policy_version_id, previous_state_json, next_state_json, created_at)` | Append-only record, unique evidence/policy update as appropriate; provenance and reproducibility |

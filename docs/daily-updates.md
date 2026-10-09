@@ -133,6 +133,29 @@ The live HTTP demo reused the retained published pilot, existing learner/enrollm
 
 No activity content generation, scoring, state updates, AI provider calls or real learner data were introduced. University and expert review remain outstanding.
 
-## Next-session handoff
+## Day 7 handoff (historical)
 
 Start Day 8 in `04-daily-plan.md`: implement Track B's template generator consuming saved plans. Preserve the shared whole-task context key, target/focus skill alignment, ordered component mappings, exact catalog/policy versions, complete time budgets and constructed-response review boundaries. Validate generated content before delivery. Keep the single-model-first provider direction for Days 12–13; learner evidence/state updates remain Day 9 work.
+
+
+## Day 8 completed — October 9, 2026
+
+Time spent: developer time not reported; record separately.
+
+User verification: the developer reported all Day 8 tests completed on October 9, 2026. The Swagger walkthrough confirmed instructor inspection, stable approval retry and learner delivery with private rubric answers omitted.
+
+Implemented Track B's deterministic template generator and five API operations consuming immutable saved plans. The connected sequence preserves whole-task context, plan positions, target/focus skills, exact policy/catalog versions, components, support and full durations. The synthetic programming template produces a worked example, optional routine automaticity question and constructed return to the same debugging task, with rubric criteria covering target and prerequisite focus. Unsupported course content fails explicitly.
+
+Strict discriminated content/rubric schemas and a separate validation boundary reject malformed adapter output, changed ordering/provenance/support, disconnected context, invalid keys, inconsistent point totals and certification claims before persistence. Rubrics are provisional synthetic definitions. Code is text only and is not executed.
+
+Migration `0008_generation` adds frozen generations and activities with composite plan-step lineage, one candidate per plan/generator version, canonical content hash and attributed synthetic review metadata. Entire sequences commit together; concurrent retries reuse the saved candidate. The pinned safety policy requires validation and review before delivery, so learner responses initially expose metadata only. A separate instructor inspects and approves/rejects the full candidate. Learner delivery removes private answer keys and expected rubric responses. Approval/delivery revalidate the stored sequence and hash. Instructor authority is currently global for synthetic review; university assignments remain future work.
+
+Evidence: all 352 tests passed in Python 3.9.21 against MySQL 8.4, with no skips (13.78 seconds). Checks cover generation/review concurrency, invalid output, isolation, self-review denial, rollback, frozen content integrity, archival behavior, SQL constraints and populated Day 7 migration preservation/schema agreement. Every pre-existing local table retained its complete row hash across the additive migration.
+
+The live HTTP walkthrough reused saved plan `d4022c31-de90-4a82-bffa-3f9b9cda8bc9` and retained generation `f08a63e4-dc44-4f0d-a28d-a6cca1f4cb9d`, containing a worked example and a whole-task return. It verified first creation, stable retry/read, blocked pre-approval delivery, attributed development-instructor review, owner-only approved reads, private scoring content and unchanged learner state. The API/database remain healthy locally. See `14-day-8.md` and `verification.md`.
+
+The first template covers the synthetic DEBUGGING target and named routine programming prerequisites; it does not generate arbitrary course content. Programmatic synthetic review is not substantive expert/university approval. No attempts, scoring, evidence/state updates, AI provider calls or real learner data were introduced.
+
+## Next-session handoff
+
+Start Day 9 in `04-daily-plan.md`: add immutable attempts and authoritative selected-response scoring, plus an instructor review path for constructed responses. Bind evidence to approved frozen activity/rubric and policy versions; reject client-authoritative scores and preserve learner isolation and whole-task evidence boundaries. Transactional learner-state update and full-loop behavior remain Day 10. Keep the single-model-first provider integration direction for Days 12–13.
