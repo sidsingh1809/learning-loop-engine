@@ -150,7 +150,16 @@ class LearnerSkillState(Base):
                              name="fk_state_enrollment_domain"),
         ForeignKeyConstraint(["skill_id", "domain_version_id"], ["skills.id", "skills.domain_version_id"],
                              name="fk_state_skill_domain"),
-        CheckConstraint("band = 'unknown' AND evidence_count = 0 AND revision = 0", name="ck_state_initial_unknown"),
+        CheckConstraint("(band = 'unknown' AND evidence_count = 0 AND revision = 0 AND policy_version IS NULL) OR "
+                        "(band IN ('developing', 'secure') AND evidence_count > 0 AND revision > 0 AND policy_version IS NOT NULL)", name="ck_state_observed"),
+        CheckConstraint("evidence_count = whole_task_evidence_count + part_task_evidence_count AND "
+                        "whole_task_evidence_count >= whole_task_attempt_count AND whole_task_attempt_count >= 0 AND "
+                        "part_task_evidence_count >= 0 AND evidence_count >= revision AND "
+                        "whole_task_points >= 0 AND whole_task_max_points >= whole_task_points AND "
+                        "((whole_task_attempt_count = 0 AND whole_task_max_points = 0) OR "
+                        "(whole_task_attempt_count > 0 AND whole_task_max_points > 0))", name="ck_state_counts"),
+        CheckConstraint("band <> 'secure' OR (whole_task_attempt_count >= 2 AND "
+                        "whole_task_points * 5 >= whole_task_max_points * 4)", name="ck_state_secure"),
         {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
     )
 
@@ -160,6 +169,12 @@ class LearnerSkillState(Base):
     band: Mapped[str] = mapped_column(String(16), nullable=False, default="unknown")
     evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    whole_task_evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    part_task_evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    whole_task_attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    whole_task_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    whole_task_max_points: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    policy_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
 
 
@@ -343,6 +358,7 @@ class Attempt(Base):
                              ["loop_plans.id", "loop_plans.enrollment_id", "loop_plans.domain_version_id"], name="fk_attempt_plan_enrollment_domain"),
         UniqueConstraint("enrollment_id", "idempotency_key", name="uq_attempt_enrollment_key"),
         UniqueConstraint("id", "domain_version_id", name="uq_attempt_id_domain"),
+        UniqueConstraint("id", "enrollment_id", "domain_version_id", name="uq_attempt_id_enrollment_domain"),
         CheckConstraint("scoring_method IN ('selected_response', 'instructor_review')", name="ck_attempt_method"),
         {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
     )
@@ -396,3 +412,22 @@ class Evidence(Base):
     evidence_kind: Mapped[str] = mapped_column(String(16), nullable=False)
     evidence_tier: Mapped[str] = mapped_column(String(16), nullable=False, default="provisional")
     formal_certification: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class StateApplication(Base):
+    """One immutable application of a terminal score, including per-skill transitions."""
+    __tablename__ = "state_applications"
+    __table_args__ = (
+        ForeignKeyConstraint(["attempt_id", "enrollment_id", "domain_version_id"],
+                             ["attempts.id", "attempts.enrollment_id", "attempts.domain_version_id"],
+                             name="fk_application_attempt_enrollment_domain"),
+        CheckConstraint("formal_certification = 0", name="ck_application_provisional"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+    attempt_id: Mapped[str] = mapped_column(ForeignKey("attempt_scores.attempt_id"), primary_key=True)
+    enrollment_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    domain_version_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    changes: Mapped[list] = mapped_column(JSON, nullable=False)
+    formal_certification: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)

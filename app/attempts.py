@@ -1,4 +1,4 @@
-"""Append-only answers and scores; learner state application belongs to Day 10."""
+"""Append-only answers and scores with transactional learner-state application."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -7,14 +7,15 @@ from sqlalchemy.orm import Session
 
 from app.activities import generation_rows, owned_plan, require_instructor, saved_sequence
 from app.attempt_schemas import (AttemptCreate, AttemptPage, AttemptRead, AttemptReview,
-                                 AttemptReviewContent, EvidenceRead, ScoreRead)
+                                 AttemptReviewContent, EvidenceRead, ScoreRead, StateApplicationRead)
 from app.database import get_session
 from app.generator import GenerationError
 from app.identity import Principal
-from app.models import Activity, ActivityGeneration, Attempt, AttemptScore, Course, Enrollment, Evidence, Learner, LoopPlan
+from app.models import Activity, ActivityGeneration, Attempt, AttemptScore, Enrollment, Evidence, Learner, LoopPlan, StateApplication
 from app.plans import representation
 from app.scoring import INSTRUCTOR_SCORER, SELECTED_SCORER, ScoringError, request_hash, reviewed_points, selected_points, validate_answer
 from app.security import require_learner
+from app.state_updates import apply_pending_scores, lock_enrollment
 
 router = APIRouter(tags=["attempts"], responses={401: {"description": "Missing or invalid credentials"},
     403: {"description": "Required role or review authority denied"}, 404: {"description": "Resource not found or not accessible"},
@@ -35,8 +36,11 @@ def attempt_read(attempt, session, lock=False):
     result = None if score is None else ScoreRead(
         **{name: getattr(score, name) for name in ScoreRead.model_fields if name != "evidence"},
         evidence=[EvidenceRead.model_validate(row, from_attributes=True) for row in evidence])
-    return AttemptRead(**{name: getattr(attempt, name) for name in AttemptRead.model_fields if name not in {"status", "score"}},
-                       status="pending_review" if score is None else "scored", score=result)
+    query = select(StateApplication).where(StateApplication.attempt_id == attempt.id)
+    application = session.scalar(query.with_for_update() if lock else query)
+    return AttemptRead(**{name: getattr(attempt, name) for name in AttemptRead.model_fields if name not in {"status", "score", "state_application"}},
+                       status="pending_review" if score is None else "scored", score=result,
+                       state_application=None if application is None else StateApplicationRead.model_validate(application))
 
 
 def owned_attempt(attempt_id, principal, session):
@@ -82,8 +86,7 @@ def submit_attempt(activity_id: UUID, payload: AttemptCreate, response: Response
     plan = owned_plan(activity.loop_plan_id, principal, session)
     enrollment = session.get(Enrollment, plan.enrollment_id)
     # Serialize new submissions with course archival and other enrollment writes.
-    course = session.scalar(select(Course).where(Course.id == enrollment.course_id).with_for_update())
-    session.scalar(select(Enrollment).where(Enrollment.id == enrollment.id).with_for_update())
+    course, enrollment = lock_enrollment(enrollment.id, session)
     plan = session.scalar(select(LoopPlan).where(LoopPlan.id == plan.id).with_for_update())
     generation = session.scalar(select(ActivityGeneration).where(ActivityGeneration.id == activity.generation_id)
                                 .with_for_update().execution_options(populate_existing=True))
@@ -112,8 +115,10 @@ def submit_attempt(activity_id: UUID, payload: AttemptCreate, response: Response
         session.flush()
         if attempt.scoring_method == "selected_response":
             append_score(attempt, step, selected_points(step, payload.response), session)
-        session.commit()
-        session.refresh(attempt)
+    # Includes unchanged Day 9 terminal scores on exact submission retries.
+    apply_pending_scores(enrollment, session)
+    session.commit()
+    session.refresh(attempt)
     response.headers["Location"] = "/api/v1/attempts/" + attempt.id
     return attempt_read(attempt, session, lock=True)
 
@@ -159,6 +164,9 @@ def review_content(attempt_id: UUID, principal: Principal = Depends(require_inst
 @router.post("/attempts/{attempt_id}/review", response_model=AttemptRead)
 def review_attempt(attempt_id: UUID, payload: AttemptReview, principal: Principal = Depends(require_instructor),
                    session: Session = Depends(get_session)):
+    attempt = instructor_attempt(attempt_id, principal, session)
+    # Match submission/planning lock order before locking the attempt.
+    _, enrollment = lock_enrollment(attempt.enrollment_id, session)
     attempt = instructor_attempt(attempt_id, principal, session, lock=True)
     step = validated_step(session.get(Activity, attempt.activity_id), session)
     try:
@@ -172,5 +180,6 @@ def review_attempt(attempt_id: UUID, payload: AttemptReview, principal: Principa
             raise HTTPException(409, "Attempt already has a different terminal score")
     else:
         append_score(attempt, step, points, session, principal.subject, payload.note)
-        session.commit()
+    apply_pending_scores(enrollment, session)
+    session.commit()
     return attempt_read(attempt, session, lock=True)

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_serializer
@@ -46,9 +46,16 @@ class EnrollmentPage(BaseModel):
 class SkillStateRead(TimestampRead):
     skill_id: UUID
     domain_version_id: UUID
-    band: Literal["unknown"]
+    band: Literal["unknown", "developing", "secure"]
     evidence_count: int
     revision: int
+    whole_task_evidence_count: int
+    part_task_evidence_count: int
+    whole_task_attempt_count: int
+    whole_task_points: int
+    whole_task_max_points: int
+    policy_version: Optional[str]
+    formal_certification: Literal[False] = False
     updated_at: datetime
 
 
@@ -58,3 +65,10 @@ class LearnerStateRead(BaseModel):
     items: list[SkillStateRead]
     limit: int
     offset: int
+
+
+class StateSyncRead(BaseModel):
+    enrollment_id: UUID
+    applied_count: int
+    policy_version: str
+    formal_certification: Literal[False] = False

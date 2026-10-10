@@ -5,17 +5,17 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, inspect, text
+from sqlalchemy import create_engine, delete, func, inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_engine, get_session
 from app.main import app
-from app.models import (Attempt, AttemptScore, Evidence, Activity, ActivityGeneration, ActivityVariant, ComponentActivityMapping, PolicyVersion,
+from app.models import (StateApplication, Attempt, AttemptScore, Evidence, Activity, ActivityGeneration, ActivityVariant, ComponentActivityMapping, PolicyVersion,
                         Competency, Course, DomainVersion, Enrollment, Learner, LearnerSkillState, LoopPlan, LoopStep, Skill, SkillPrerequisite)
 
-CLEANUP_MODELS = (Evidence, AttemptScore, Attempt, Activity, ActivityGeneration, LoopStep, LoopPlan, ComponentActivityMapping, ActivityVariant, PolicyVersion,
+CLEANUP_MODELS = (StateApplication, Evidence, AttemptScore, Attempt, Activity, ActivityGeneration, LoopStep, LoopPlan, ComponentActivityMapping, ActivityVariant, PolicyVersion,
                   LearnerSkillState, Enrollment, Learner, SkillPrerequisite, Skill, Competency, DomainVersion, Course)
 
 TEST_API_KEY = "synthetic-test-key-32-characters-long"
@@ -229,6 +229,21 @@ def mysql_engine():
                 attempt_id="migration-attempt", criterion_code="FOCUS",
                 domain_version_id="00000000-0000-0000-0000-000000000003",
                 skill_id="00000000-0000-0000-0000-000000000005", points=1, max_points=1, evidence_kind="part_task"))
+        # Day 10 preserves all Day 9 rows, including scored but unapplied evidence.
+        command.downgrade(config, "0009_attempts")
+        assert "state_applications" not in inspect(get_engine()).get_table_names()
+        with get_engine().connect() as connection:
+            day9_columns = {table: [c["name"] for c in inspect(connection).get_columns(table)]
+                            for table in (*day8_tables, "attempts", "attempt_scores", "evidence")}
+            before_day10 = {table: connection.execute(text("SELECT * FROM " + table)).mappings().all()
+                            for table in day9_columns}
+        command.upgrade(config, "head")
+        with get_engine().connect() as connection:
+            for table, columns in day9_columns.items():
+                quoted = [connection.dialect.identifier_preparer.quote(c) for c in columns]
+                assert connection.execute(text("SELECT " + ", ".join(quoted) + " FROM " + table)).mappings().all() == before_day10[table]
+            assert connection.scalar(select(func.count()).select_from(StateApplication)) == 0
+        command.check(config)
         command.downgrade(config, "0008_generation")
         assert not {"attempts", "attempt_scores", "evidence"} & set(inspect(get_engine()).get_table_names())
         command.upgrade(config, "head")

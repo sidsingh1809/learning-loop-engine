@@ -31,7 +31,7 @@ Migration 0004 retains earlier course/domain content and leaves migrations 0001�
 
 - `learners`: random UUID, unique `principal_subject VARCHAR(128)` internal development identity mapping, UTC `created_at`. Subject comparison uses `utf8mb4_bin` so case-distinct authenticated subjects remain separate. Responses expose UUID and creation time only; no name, email, university ID or subject is accepted in the body. The subject mapping is still linkable identity data and requires a reviewed `(issuer, subject)` migration before university identities are enabled.
 - `enrollments`: UUID, learner/course FKs, `domain_version_id`, server-controlled `active` status and UTC creation time. Unique `(learner_id, course_id)` permits one retained enrollment per course in this milestone. A new unique key on `domain_versions(id, course_id)` and composite FK enforce the enrollment's course/version boundary. Unique `(id, domain_version_id)` supports state integrity. No version transfer, withdrawal or re-enrollment lifecycle exists yet.
-- `learner_skill_states`: composite primary key `(enrollment_id, skill_id)`, `domain_version_id`, `band`, `evidence_count`, `revision`, UTC `updated_at`. Composite FKs bind both enrollment and skill to the same domain. Enrollment inserts every initial skill row transactionally. Day 5's check allows only `unknown`, zero evidence and revision zero; a later evidence-update migration must deliberately replace this check alongside its scoring/update contract. `updated_at` initially records creation, not a demonstrated learning event.
+- `learner_skill_states`: composite primary key `(enrollment_id, skill_id)`, `domain_version_id`, `band`, `evidence_count`, `revision`, UTC `updated_at`. Composite FKs bind both enrollment and skill to the same domain. Enrollment inserts every initial skill row transactionally. Day 5's check allows only `unknown`, zero evidence and revision zero; Day 10 migration 0010 replaces this check alongside its evidence-application contract. `updated_at` initially records creation, not a demonstrated learning event.
 
 All new tables retain the existing UTF-8 collation except the case-sensitive identity mapping column. Foreign keys retain referenced records; there are no cascading deletes or learner deletion APIs. API enrollment checks active course and published version while locking course then domain. Its existing-enrollment and initial-skill lookups are also locking reads to see the latest committed rows under MySQL repeatable-read isolation. Published-only enrollment, authorization and complete initial skill coverage are service invariants.
 
@@ -56,7 +56,7 @@ Migration 0006 preserves the eight existing tables and leaves migrations 0001–
 
 The JSON decision excludes steps; reads assemble them from the normalized rows in position order. Its shared context key binds prerequisite support and the return to the target whole task. The complete input snapshot retains graph, state bands/counts/revisions, candidate catalog metadata and exact policy versions for replay. Authorization, approved/compatible catalog selection, eligibility, connected sequencing, summed durations and immutability are service invariants. No plan/step edit or delete API exists.
 
-Planning locks course → domain → enrollment → states, followed by a current plan/step read for deterministic concurrent retries under MySQL repeatable-read. Read-only GET uses a consistent snapshot. No learner-state constraint is relaxed: production tables remain initial-only until the evidence milestone. Internal beginner/experienced fixtures are distinct from persisted learner state.
+Planning locks course → domain → enrollment → states, followed by a current plan/step read for deterministic concurrent retries under MySQL repeatable-read. Read-only GET uses a consistent snapshot. At Day 7, persisted state remained initial-only and observed beginner/experienced bands were internal fixtures. Day 10 introduces authoritative evidence application and synchronizes historical scores before the plan snapshot.
 
 Migration 0007 is additive; migrations 0001–0006 remain unchanged. Downgrade loses plans/steps and is tested only in the disposable database. Populated reviewed catalog and learner rows survive its downgrade/re-upgrade; Alembic checks model/schema agreement.
 
@@ -67,7 +67,7 @@ Migration 0007 is additive; migrations 0001–0006 remain unchanged. Downgrade l
 
 Plan locking serializes generation retries; all steps commit atomically. No content edit/delete API exists. Instructor review atomically approves/rejects the complete sequence; approved-only learner reads remove private scoring keys. Validation replays the pinned plan, checks ordering, skills, components, support, durations, format, context, rubric and policy IDs, and verifies the content hash before approval/delivery. Catalog approval does not automatically approve newly generated content. The synthetic template/rubric remains provisional.
 
-Migration 0008 is additive and preserves all thirteen prior tables. Populated Day 7 plans/steps survive its downgrade/re-upgrade, and Alembic checks model/schema agreement. Downgrade loses generation/content/review records and is tested only on the disposable database. Learner-state constraints remain initial-only.
+Migration 0008 is additive and preserves all thirteen prior tables. Populated Day 7 plans/steps survive its downgrade/re-upgrade, and Alembic checks model/schema agreement. Downgrade loses generation/content/review records and is tested only on the disposable database. Day 8 retained initial-only learner-state constraints; Day 10 replaces them explicitly.
 
 ## Implemented in migration 0009
 
@@ -75,9 +75,19 @@ Migration 0008 is additive and preserves all thirteen prior tables. Populated Da
 - `attempt_scores`: one terminal row per attempt (PK/FK `attempt_id`), scoring method, scorer/rubric version, synthetic review scope, nullable reviewer/note and UTC creation time. Checks require complete attribution for instructor scoring and null attribution for server scoring. Pending written attempts have no score row; status is derived, so scoring does not mutate submitted answers.
 - `evidence`: composite primary key `(attempt_id, criterion_code)` with case-sensitive criterion code; score FK plus same-domain attempt and skill composite FKs. Includes integer points/maxima, part-task/whole-task kind, provisional tier and false certification flag. Checks enforce nonnegative points within a positive maximum and the supported evidence scope. Criterion maxima and skill coverage are validated against the frozen rubric in the service.
 
-Attempts and scores/evidence are immutable through the API. Selected scoring commits all three together; later instructor scoring commits its score and complete evidence set together. Current locking reads preserve retry results under MySQL repeatable-read. Evidence reaches generation content/hash, plan context, published graph and exact policy/catalog versions through retained lineage. No learner-state constraint is relaxed; Day 10 will introduce the evidence application transaction and state history.
+Attempts and scores/evidence are immutable through the API. Selected scoring commits all three together; later instructor scoring commits its score and complete evidence set together. Current locking reads preserve retry results under MySQL repeatable-read. Evidence reaches generation content/hash, plan context, published graph and exact policy/catalog versions through retained lineage. Day 9 retained initial-only learner-state constraints; Day 10 extends this transaction with state application and history.
 
 Migration 0009 preserves all fifteen previous tables and leaves migrations 0001–0008 unchanged. Tests verify populated Day 8 rows across downgrade/re-upgrade and Alembic schema agreement; complete local row hashes also match. Downgrade drops all new attempts/scores/evidence before removing the added lineage keys and is verified only in the disposable database. Authorization, terminal review, self-review denial, JSON shape and content integrity remain service invariants; direct operator SQL can bypass them.
+
+## Day 10 implemented state application
+
+Migration `0010_state_application` replaces the initial-only state constraint and adds `state_applications`, keyed by terminal score/attempt. Composite keys enforce the same attempt/enrollment/domain lineage. Each application pins `provisional-mastery-v1` and stores criterion codes and exact before/after values per skill in typed JSON; the originating evidence retains points and whole-task/part-task kind. There is no application edit/delete API.
+
+Skill states now expose whole-task criterion counts, part-task criterion counts, whole-task attempt counts, cumulative whole-task points/maxima and nullable policy version. A revision counts one scored attempt per skill, even with multiple rubric criteria. Evidence counts count criteria. Unknown retains zero counts/revision and no policy. Observed bands require evidence and provenance. Secure additionally requires two whole-task attempts and at least 80% cumulative whole-task points; part-task points are excluded. These constraints implement a synthetic provisional engineering policy, not a university-approved assessment rule.
+
+Course → enrollment locking serializes scoring, historical application and planning. Score, evidence, affected states and the application marker commit together. Historical Day 9 scores remain unchanged and can be applied through the learner synchronization API, scoring/retries or next-plan creation. The migration itself does not infer state or rewrite evidence. Old plan fingerprints remain replayable when their state snapshots lack the new optional policy version.
+
+All original columns and rows survive the local migration. The disposable database verifies populated Day 9 downgrade/re-upgrade and schema agreement. Downgrade refuses before DDL when observed state exists; restore a pre-Day-10 backup to return to the initial-only model. MySQL DDL is not transactional, so operators must still back up before migrations. See `16-day-10.md` for the application contract and policy limitations.
 
 ## Proposed next migrations
 
@@ -91,10 +101,10 @@ These tables are a design, not an implemented database. We will refine each with
 | Catalog extensions | Editable activity-type registry, additional configuration, retirement/revocation | Minimal variants/mappings are implemented; future evidence tiers need variation-specific review |
 | Catalog composition extensions | `experience_patterns(id, version, steps_json, review_status)` | Validated connected step schemas referencing exact approved variants |
 | Policy extensions | Extend implemented policy versions with decision, mastery and spacing schemas | Immutable versions with reviewed category-specific contracts; no invented thresholds |
-| Learner state updates | Extend implemented enrollment-scoped states with reviewed bands, evidence provenance and update history | Replace initial-only check with the evidence transaction contract; preserve unknown distinct from low band; revision supports concurrency |
+| Learner state policy extensions | Reviewed/calibrated policies and explicit policy migration | Day 10 provisional bands and application history are implemented; preserve evidence and history when changing policy |
 | Activity extensions | Standalone reviewed rubric versions, normalized multi-skill evidence mappings and generation job FK on existing frozen activities | Day 8 stores typed content/rubric snapshots and target/focus alignment; richer authoring and provider jobs remain planned |
 | Evidence extensions | Versioned regrading/corrections, standalone rubric revisions and explicit state-application policy | Preserve original terminal scores and append attributed revisions; no evidence rewriting |
-| State history | `state_events(id, learner_id, skill_id, evidence_id, policy_version_id, previous_state_json, next_state_json, created_at)` | Append-only record, unique evidence/policy update as appropriate; provenance and reproducibility |
+| State history extensions | Richer reporting/indexes on implemented `state_applications` | Day 10 already records one immutable application per terminal attempt and typed per-skill transitions |
 | Practice schedule | `review_schedule(learner_id, skill_id, due_at, policy_version_id)`; `generation_history(id, learner_id, activity_id, context_key, generated_at)` | Index due date and learner/skill; spacing policy experimental until evaluated |
 | Integration | `generation_jobs(id, status, attempts, provider_metadata_json, error_code)`; `outbox_events(id, event_type, payload_json, status, created_at)` | Transactional outbox with bounded retries; no raw secrets in payloads |
 | Audit | `audit_events(id, actor_subject, action, resource_type, resource_id, request_id, occurred_at)` | Append-only access policy; indexed actor/time and resource/time; exclude learner response bodies |
@@ -117,7 +127,7 @@ erDiagram
     LEARNERS ||--o{ ATTEMPTS : submits
     ACTIVITIES ||--o{ ATTEMPTS : receives
     ATTEMPTS ||--o{ EVIDENCE : supports
-    EVIDENCE ||--o{ STATE_EVENTS : updates
+    ATTEMPTS ||--o| STATE_APPLICATIONS : applies
     LEARNERS ||--o{ LEARNER_SKILL_STATES : maintains
     SKILLS ||--o{ LEARNER_SKILL_STATES : measures
 ```

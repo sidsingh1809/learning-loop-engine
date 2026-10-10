@@ -57,7 +57,7 @@ def test_readiness_requires_day5_schema(client, missing):
 def test_openapi_has_learner_security_and_read_only_state(client):
     paths = client.get("/openapi.json").json()["paths"]
     learner_paths = {path: operations for path, operations in paths.items() if path.startswith("/api/v1/learners")}
-    assert len(learner_paths) == 6
+    assert len(learner_paths) == 7
     for operations in learner_paths.values():
         for operation in operations.values():
             assert operation["security"] == [{"APIKeyHeader": []}]

@@ -37,7 +37,7 @@ def review_payload(client, path, instructor):
             "note": "Programmatic synthetic scoring only; no expert approval."}
 
 
-def test_written_attempt_review_evidence_and_state_unchanged(mysql_client, mysql_engine, role_headers, ready):
+def test_written_attempt_review_evidence_and_state_application(mysql_client, mysql_engine, role_headers, ready):
     ap, _, _, plan, _, ep = ready
     learner, instructor = role_headers["learner"], role_headers["instructor"]
     before = mysql_client.get(ep + "/state", headers=learner).json()
@@ -68,7 +68,10 @@ def test_written_attempt_review_evidence_and_state_unchanged(mysql_client, mysql
     assert mysql_client.post(path + "/review", headers=instructor, json={**scoring, "note": "Changed"}).status_code == 409
     changed = {**scoring, "criteria": [{**c, "points": 0} for c in scoring["criteria"]]}
     assert mysql_client.post(path + "/review", headers=instructor, json=changed).status_code == 409
-    assert mysql_client.get(ep + "/state", headers=learner).json() == before
+    after = mysql_client.get(ep + "/state", headers=learner).json()
+    changed = [s for s in after["items"] if s["revision"]]
+    assert len(changed) == 2 and all(s["band"] == "developing" and s["revision"] == 1 for s in changed)
+    assert scored["state_application"]["policy_version"] == "provisional-mastery-v1"
     with mysql_engine.connect() as conn:
         assert conn.scalar(select(func.count()).select_from(Attempt)) == 1
         assert conn.scalar(select(func.count()).select_from(AttemptScore)) == 1
@@ -272,7 +275,10 @@ def test_selected_response_correct_incorrect_and_atomic_failure(mysql_client, my
     with mysql_engine.connect() as conn:
         for model in [Attempt, AttemptScore, Evidence]:
             assert conn.scalar(select(func.count()).select_from(model)) == 3
-    assert mysql_client.get(planning[3] + "/state", headers=learner).json() == before
+    after = mysql_client.get(planning[3] + "/state", headers=learner).json()
+    changed = [s for s in after["items"] if s["revision"]]
+    assert len(changed) == 1 and changed[0]["band"] == "developing"
+    assert changed[0]["part_task_evidence_count"] == 3 and changed[0]["whole_task_attempt_count"] == 0
 
 
 def test_mysql_evidence_bounds_and_lineage(mysql_client, mysql_engine, role_headers, ready):

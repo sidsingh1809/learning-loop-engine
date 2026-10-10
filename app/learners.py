@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 from app.database import get_session
 from app.identity import Principal
 from app.learner_schemas import (EnrollmentCreate, EnrollmentPage, EnrollmentRead, LearnerCreate,
-                                 LearnerRead, LearnerStateRead, SkillStateRead)
+                                 LearnerRead, LearnerStateRead, SkillStateRead, StateSyncRead)
 from app.models import Course, DomainVersion, Enrollment, Learner, LearnerSkillState, Skill
 from app.security import require_learner
+from app.state_updates import apply_pending_scores, lock_enrollment
+from app.state_policy import STATE_POLICY_VERSION
 
 router = APIRouter(
     prefix="/learners", tags=["learners"], dependencies=[Depends(require_learner)],
@@ -134,3 +136,14 @@ def get_state(learner_id: UUID, enrollment_id: UUID, limit: int = Query(default=
                              .order_by(Skill.code, Skill.id).limit(limit).offset(offset)).all()
     return LearnerStateRead(enrollment_id=enrollment.id, domain_version_id=enrollment.domain_version_id,
                             items=[SkillStateRead.model_validate(state) for state in states], limit=limit, offset=offset)
+
+
+@router.post("/{learner_id}/enrollments/{enrollment_id}/state/applications", response_model=StateSyncRead)
+def sync_state(learner_id: UUID, enrollment_id: UUID, payload: LearnerCreate,
+               principal: Principal = Depends(require_learner), session: Session = Depends(get_session)):
+    """Apply any pre-Day-10 scores; accepts no client state or evidence overrides."""
+    own_enrollment(learner_id, enrollment_id, principal, session)
+    _, enrollment = lock_enrollment(str(enrollment_id), session)
+    count = apply_pending_scores(enrollment, session)
+    session.commit()
+    return StateSyncRead(enrollment_id=enrollment.id, applied_count=count, policy_version=STATE_POLICY_VERSION)

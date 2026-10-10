@@ -2,13 +2,13 @@
 
 An API-first university learning system, developed in daily, testable increments. The target loop is: identify a learning gap → choose an instructional sequence → deliver activities → collect evidence → update the learner model → choose again.
 
-**Current milestone: Day 9 attempts, scoring and immutable evidence.** Implemented: MySQL course lifecycle, immutable published graphs, isolated learners/enrollments, reviewed activity/policy catalogs, explainable plans and validated template activities with instructor review before delivery. Learners can now submit immutable answers; selected responses receive server scores, while constructed responses require instructor rubric scoring. Evidence retains skill, rubric, scorer and activity/plan provenance. Learner-state application and the complete adaptive loop remain Day 10 work.
+**Current milestone: Day 10 first working learning loop.** Implemented: MySQL course lifecycle, immutable published graphs, isolated learners/enrollments, reviewed catalogs, explainable plans, validated template activities, immutable attempts and server/instructor scoring. Scored evidence now updates learner state and records its application atomically; the next plan consumes that state. Replay adds no evidence or state revision. Mastery bands use an explicit provisional synthetic policy, with whole-task and part-task progress reported separately.
 
 ## Start here
 
 1. Read [the scope and unresolved decisions](docs/01-scope.md).
 2. Follow [the daily development plan](docs/04-daily-plan.md). It assumes one developer working 3–6 hours daily, with two hours already spent on Day 1.
-3. Run [the Day 9 walkthrough](docs/15-day-9.md); [Day 8](docs/14-day-8.md) covers generation, [Day 7](docs/13-day-7.md) covers planning, [Day 6](docs/12-day-6.md) covers catalogs, [Day 5](docs/11-day-5.md) covers learners, [Day 4](docs/10-day-4.md) covers publishing, [Day 3](docs/09-day-3.md) covers domain authoring, [Day 2](docs/06-day-2.md) covers course lifecycle and [Day 1](docs/05-day-1.md) covers the foundation.
+3. Run [the Day 10 walkthrough](docs/16-day-10.md); [Day 9](docs/15-day-9.md) covers scoring, [Day 8](docs/14-day-8.md) covers generation, [Day 7](docs/13-day-7.md) covers planning, [Day 6](docs/12-day-6.md) covers catalogs, [Day 5](docs/11-day-5.md) covers learners, [Day 4](docs/10-day-4.md) covers publishing, [Day 3](docs/09-day-3.md) covers domain authoring, [Day 2](docs/06-day-2.md) covers course lifecycle and [Day 1](docs/05-day-1.md) covers the foundation.
 4. Use [the progress log](docs/daily-updates.md) for daily reporting.
 
 ## Run locally
@@ -46,6 +46,9 @@ python3 scripts/demo_day6.py
 .venv/bin/python scripts/demo_day9.py
 .venv/bin/python scripts/demo_day9.py --plan-id d4022c31-de90-4a82-bffa-3f9b9cda8bc9
 
+.venv/bin/python scripts/demo_day10.py
+.venv/bin/python scripts/demo_day10.py --plan-id d4022c31-de90-4a82-bffa-3f9b9cda8bc9
+
 # Confirm exact runtime and inspect service state.
 docker compose exec api python --version
 docker compose ps
@@ -61,7 +64,7 @@ Host development is optional: install Python **3.9.21**, create `.venv`, install
 | Method | Route | Purpose |
 |---|---|---|
 | GET | `/health/live` | Process health, no database required |
-| GET | `/health/ready` | All eighteen migrated application tables are reachable |
+| GET | `/health/ready` | All nineteen migrated application tables are reachable |
 | POST | `/api/v1/courses` | Create a course; returns 201 and Location |
 | GET | `/api/v1/courses?limit=20&offset=0&status=active` | List courses, ordered by code; supports active/archived/all |
 | GET | `/api/v1/courses/{uuid}` | Retrieve one course |
@@ -74,15 +77,17 @@ There are 17 domain operations under `/api/v1/courses/{course_id}/domain-version
 
 Every application operation will be available through APIs, including authoring, imports, learner state, generation, attempts, and reporting. Database migrations, backups, and infrastructure configuration remain operator tasks; they are not public application endpoints.
 
-Day 5 adds six learner operations: register the authenticated learner with `POST /api/v1/learners` and `{}`; read `/learners/{learner_id}`; create/list `/learners/{learner_id}/enrollments`; read an individual enrollment and its `/state`. Enrollment POST takes `course_id` and `domain_version_id`, requires an active course and published version, and initializes every skill as `unknown` with zero evidence and revision. Repeated registration/enrollment returns the existing row (200); first creation returns 201 and Location. Learners receive 404 for another learner's records, and author/instructor/integration roles without learner authority receive 403. State has no write endpoint. See [Day 5](docs/11-day-5.md) for examples and current enrollment limits.
+Day 5 adds six learner operations: register the authenticated learner with `POST /api/v1/learners` and `{}`; read `/learners/{learner_id}`; create/list `/learners/{learner_id}/enrollments`; read an individual enrollment and its `/state`. Enrollment POST takes `course_id` and `domain_version_id`, requires an active course and published version, and initializes every skill as `unknown` with zero evidence and revision. Repeated registration/enrollment returns the existing row (200); first creation returns 201 and Location. Learners receive 404 for another learner's records, and author/instructor/integration roles without learner authority receive 403. State has no client override endpoint; Day 10 adds an empty-body operation to apply stored terminal scores. See [Day 5](docs/11-day-5.md) for examples and current enrollment limits.
 
 Day 6 adds twelve catalog operations under `/api/v1/catalog`: create/list/read immutable `/activity-versions` and `/policy-versions`, instructor `/review` actions, and approved-only `/activities` and `/policies` list/detail reads. Activities pin exact approved policy IDs and retain component mappings with rationale. Review is for synthetic prototype use only; university and expert review remain outstanding. See [Day 6](docs/12-day-6.md) for the contract and limits.
 
-Day 7 adds `POST /api/v1/learners/{learner_id}/loop-plans` and `GET /api/v1/loop-plans/{plan_id}`. Plans use stored enrollment state, a requested target, exact approved policy IDs and a strict 1–180 minute budget. Responses preserve the input snapshot, deterministic rationale, focus/support, catalog IDs and connected steps. Identical input retries return the saved plan (200); first creation returns 201 and Location. Unknown remains distinct from low knowledge. Evidence-bearing beginner/experienced profiles are internal fixtures until Day 10 implements authoritative state updates. See [Day 7](docs/13-day-7.md).
+Day 7 adds `POST /api/v1/learners/{learner_id}/loop-plans` and `GET /api/v1/loop-plans/{plan_id}`. Plans use stored enrollment state, a requested target, exact approved policy IDs and a strict 1–180 minute budget. Responses preserve the input snapshot, deterministic rationale, focus/support, catalog IDs and connected steps. Identical input retries return the saved plan (200); first creation returns 201 and Location. Unknown remains distinct from low knowledge. Day 10 supplies evidence-bearing live state; beginner/experienced profiles also remain available as internal fixtures. See [Day 7](docs/13-day-7.md).
 
 Day 8 adds five operations: learner `POST /api/v1/loop-plans/{plan_id}/generations` with `{}`, learner `GET /api/v1/activity-generations/{generation_id}`, instructor `GET /api/v1/activity-generations/{generation_id}/review-content` and `POST /api/v1/activity-generations/{generation_id}/review`, and learner `GET /api/v1/activities/{activity_id}`. Generation saves an ordered candidate atomically (201), reuses it on retry (200), and withholds activity content until instructor approval. Rubrics align target/focus skills; scoring keys stay private. The first template covers the synthetic programming DEBUGGING pilot. See [Day 8](docs/14-day-8.md) for supported content and review limits.
 
 Day 9 adds learner `POST`/`GET /api/v1/activities/{activity_id}/attempts`, learner `GET /api/v1/attempts/{attempt_id}`, and instructor `GET /api/v1/attempts/{attempt_id}/review-content` and `POST /api/v1/attempts/{attempt_id}/review`. Submissions require a UUID idempotency key and typed answer. Selected answers score on the server; written answers remain pending until a different instructor principal scores every saved rubric criterion. Scores/evidence are terminal and provisional; clients cannot supply authoritative scores. See [Day 9](docs/15-day-9.md) for retries, examples and boundaries.
+
+Day 10 adds learner `POST /api/v1/learners/{learner_id}/enrollments/{enrollment_id}/state/applications` with `{}` for historical scores. Scoring and exact attempt/review retries also apply pending scores; next-plan requests synchronize before taking their input snapshot. Attempts expose immutable `state_application` history, and state reads expose separate whole-task and part-task counts, cumulative whole-task points and policy version. `provisional-mastery-v1` marks observed evidence as developing; secure requires at least two whole-task attempts and 80% cumulative whole-task points for that skill. Neither band grants certification. See [Day 10](docs/16-day-10.md).
 
 ## Project map
 
@@ -97,7 +102,7 @@ compose.yaml          Local app and separate disposable test database
 requirements*.txt     Pinned runtime and test dependencies
 ```
 
-See [architecture](docs/02-architecture.md) and [schema design](docs/03-schema.md) for the intended system. The eighteen implemented tables are `courses`, `domain_versions`, `competencies`, `skills`, `skill_prerequisites`, `learners`, `enrollments`, `learner_skill_states`, `policy_versions`, `activity_variants`, `component_activity_mappings`, `loop_plans`, `loop_steps`, `activity_generations`, `activities`, `attempts`, `attempt_scores` and `evidence`.
+See [architecture](docs/02-architecture.md) and [schema design](docs/03-schema.md) for the intended system. The nineteen implemented tables are `courses`, `domain_versions`, `competencies`, `skills`, `skill_prerequisites`, `learners`, `enrollments`, `learner_skill_states`, `policy_versions`, `activity_variants`, `component_activity_mappings`, `loop_plans`, `loop_steps`, `activity_generations`, `activities`, `attempts`, `attempt_scores`, `evidence` and `state_applications`.
 
 ## Engineering constraints
 

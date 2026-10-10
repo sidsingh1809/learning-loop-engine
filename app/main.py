@@ -25,8 +25,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Learning Loop Engine API",
-    version="0.9.0",
-    description="Day 9 immutable attempts and provisional server/instructor-scored evidence.",
+    version="0.10.0",
+    description="Day 10 transactional provisional state application and the complete learning loop.",
     lifespan=lifespan,
 )
 app.include_router(courses_router, prefix="/api/v1")
@@ -59,7 +59,7 @@ def ready(session: Session = Depends(get_session)):
     session.execute(text("SELECT id, domain_version_id, skill_id, prerequisite_skill_id FROM skill_prerequisites LIMIT 1"))
     session.execute(text("SELECT id, principal_subject, created_at FROM learners LIMIT 1"))
     session.execute(text("SELECT id, learner_id, course_id, domain_version_id, status FROM enrollments LIMIT 1"))
-    session.execute(text("SELECT enrollment_id, skill_id, domain_version_id, band, evidence_count, revision, updated_at FROM learner_skill_states LIMIT 1"))
+    session.execute(text("SELECT enrollment_id, skill_id, domain_version_id, band, evidence_count, revision, updated_at, whole_task_attempt_count, whole_task_evidence_count, part_task_evidence_count, whole_task_points, whole_task_max_points, policy_version FROM learner_skill_states LIMIT 1"))
     session.execute(text("SELECT id, category, version, rules, review_status FROM policy_versions LIMIT 1"))
     session.execute(text("SELECT id, activity_type, version, learning_science_policy_id, safety_policy_id, review_status FROM activity_variants LIMIT 1"))
     session.execute(text("SELECT activity_variant_id, component, rationale FROM component_activity_mappings LIMIT 1"))
@@ -70,4 +70,5 @@ def ready(session: Session = Depends(get_session)):
     session.execute(text("SELECT id, activity_id, enrollment_id, response, request_hash FROM attempts LIMIT 1"))
     session.execute(text("SELECT attempt_id, scorer_version, rubric_version, reviewed_by FROM attempt_scores LIMIT 1"))
     session.execute(text("SELECT attempt_id, criterion_code, skill_id, points, max_points FROM evidence LIMIT 1"))
+    session.execute(text("SELECT attempt_id, enrollment_id, domain_version_id, policy_version, changes FROM state_applications LIMIT 1"))
     return {"status": "ready"}

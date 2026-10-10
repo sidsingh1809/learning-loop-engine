@@ -25,19 +25,19 @@ flowchart LR
     State --> Planner
 ```
 
-This diagram describes the target. Days 1–9 implement the API, course lifecycle, immutable published domain graphs, isolated learner enrollment/state, and versioned activity/policy catalogs with instructor-role review for synthetic use. Track A saves deterministic decisions and connected steps with complete input snapshots. Track B saves validated, ordered template activities and requires attributed synthetic instructor review before delivery. Attempts now retain immutable answers and server/instructor-scored criterion evidence. Applying evidence to learner state remains Day 10 work.
+Days 1–10 implement the API, course lifecycle, immutable published domain graphs, isolated learner enrollment/state, and versioned activity/policy catalogs with instructor-role review for synthetic use. Track A saves deterministic decisions and connected steps with complete input snapshots. Track B saves validated, ordered template activities and requires attributed synthetic instructor review before delivery. Attempts now retain immutable answers and server/instructor-scored criterion evidence. Terminal scores now apply their evidence to learner state and append immutable per-attempt application history in the same transaction. Next-plan requests consume updated bands, counts, revisions and the provisional mastery policy version. Historical scores can be synchronized without rewriting evidence; whole-task and part-task progress remain separate.
 
 ## Core transaction
 
 1. Authenticate the caller and verify permission for the learner and course.
-2. Load an immutable domain version, learner evidence and state, approved policies, time budget, and generation history.
+2. Load an immutable domain version, learner evidence and state, approved policies, time budget, and, when implemented, generation history.
 3. Resolve missing prerequisites and choose a focus. Unknown evidence is distinct from demonstrated low proficiency.
 4. Persist a plan containing focus, rationale, policy versions, component sequence, support, complexity, context, and completion conditions.
 5. Generate activities from the plan through a template/provider interface. Validate structure, skill alignment, time budget, rubric, and review requirements. Only approved content becomes deliverable.
 6. Accept a learner attempt using an idempotency key. Derive learner identity from authorization, never solely from a submitted ID.
 7. Score deterministically where possible. Hold constructed responses for an authorized review or a validated scorer; a learner cannot submit their own authoritative score.
 8. In one transaction, persist evidence, append the state-update event, and update affected learner-skill rows. Lock or version those rows so simultaneous submissions cannot lose updates.
-9. Return evidence provenance and the next action. Preserve whole-task context when inserting prerequisite support. A loop ends only under its explicit experimental policy; formal certification remains separate.
+9. Return evidence provenance and state-application history; a subsequent next-plan request chooses the next action. Preserve whole-task context when inserting prerequisite support. A loop ends only under its explicit experimental policy; formal certification remains separate.
 
 No score formula or evidence threshold is an approved university policy at this stage. Every experimental algorithm gets a policy version and evaluation fixtures.
 

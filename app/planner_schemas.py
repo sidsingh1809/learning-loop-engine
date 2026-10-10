@@ -1,5 +1,5 @@
-"""Track A contracts. Observed bands remain internal fixtures until Day 10 state application."""
-from typing import Literal
+"""Track A contracts over versioned, authoritative learner state."""
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
@@ -30,14 +30,15 @@ class StateSnapshot(StrictInput):
     band: Literal["unknown", "developing", "secure"]
     evidence_count: StrictInt = Field(ge=0)
     revision: StrictInt = Field(ge=0)
+    policy_version: Optional[str] = None
 
     @model_validator(mode="after")
     def evidence_required(self):
         if self.band == "unknown":
             if self.evidence_count != 0 or self.revision != 0:
-                raise ValueError("Unknown fixture states must have no evidence or revisions")
+                raise ValueError("Unknown states must have no evidence or revisions")
         elif self.evidence_count == 0 or self.revision == 0:
-            raise ValueError("Observed fixture bands require evidence and a revision")
+            raise ValueError("Observed bands require evidence and a revision")
         return self
 
 

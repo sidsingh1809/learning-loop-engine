@@ -65,7 +65,7 @@ Codes are unique per domain version within each resource type; skill codes remai
 
 All four development roles may read this synthetic domain metadata, including drafts and archived-course domains. Writes require the author role and course ownership (403 otherwise), an active course, and a draft domain (409 otherwise). Missing or mismatched nested resources return 404. Authoring locks the course before the domain, serializing it with archival. Concurrent creation allocates distinct version numbers. Edits use last successful write semantics; no ETag or revision precondition exists yet.
 
-No domain deletion or cloning endpoint is implemented. Day 4 adds the graph and publication operations below. Readiness checks all eighteen implemented tables, including learner, catalog, plan, activity and evidence metadata. Existing course endpoints retain their Day 2 behavior.
+No domain deletion or cloning endpoint is implemented. Day 4 adds the graph and publication operations below. Readiness checks all nineteen implemented tables, including learner, catalog, plan, activity and evidence metadata. Existing course endpoints retain their Day 2 behavior.
 
 ## Day 4 prerequisites, validation and publishing
 
@@ -103,7 +103,7 @@ All routes require the learner role. Non-learner roles receive 403 before object
 
 First registration/enrollment returns 201 with Location; retries return 200 with the same persisted representation and Location. Registration accepts no identity fields. Enrollment requires an active course and a published version belonging to it (409 for archived/draft, 404 for missing/mismatched parents). One retained enrollment per learner/course is allowed; requesting a different published version returns 409. Enrollment version and status cannot be changed. After course archival existing records remain readable, but enrollment POST, including repeats, returns 409.
 
-Enrollment creation commits its record and all initial skill states together. Each state contains `skill_id`, `domain_version_id`, `band: unknown`, `evidence_count: 0`, `revision: 0`, and UTC `updated_at`. The timestamp records initial persistence, not learning evidence. Unknown does not assert low proficiency. Retrying enrollment or reading state never resets or adds states. No client score, proficiency or state-update route exists. Evidence-backed changes come in Days 9–10.
+Enrollment creation commits its record and all initial skill states together. Each state contains `skill_id`, `domain_version_id`, `band: unknown`, `evidence_count: 0`, `revision: 0`, and UTC `updated_at`. The timestamp records initial persistence, not learning evidence. Unknown does not assert low proficiency. Retrying enrollment or reading state never resets or adds states. No client score or proficiency override exists. Day 10 applies stored terminal evidence through scoring and an empty-body synchronization operation, with separate whole-task and part-task progress fields.
 
 Enrollment lists follow standard `{items, limit, offset}` pagination. State reads return `{enrollment_id, domain_version_id, items, limit, offset}`, default limit 20 and maximum 100. There is no learner directory or global enrollment list. All reads retain the standard sanitized database-error response.
 
@@ -134,11 +134,11 @@ Lists return `{items, limit, offset}`, with standard bounds, ordered by `(code, 
 
 The first decision returns 201 and `Location: /api/v1/loop-plans/{plan_id}`. The input fingerprint includes planner version, canonical graph/state/candidate catalog/policy snapshots, target and budget, excluding request time and generated plan UUID. An identical input for the same enrollment returns the same saved representation with 200 and Location. Concurrent identical requests serialize. A changed budget, state, planner version or approved candidate catalog can produce a new fingerprint; this is input-based reuse, not a general HTTP idempotency-key implementation.
 
-`GET /api/v1/loop-plans/{plan_id}` returns only the authenticated learner's saved plan. Missing/foreign records return 404, including spoofed identity headers. Other roles receive 403 absent a learner role; extra roles never bypass ownership. Saved reads remain available after archival. Plans/steps are immutable and have no PATCH/DELETE routes; planning never changes learner state.
+`GET /api/v1/loop-plans/{plan_id}` returns only the authenticated learner's saved plan. Missing/foreign records return 404, including spoofed identity headers. Other roles receive 403 absent a learner role; extra roles never bypass ownership. Saved reads remain available after archival. Plans/steps are immutable and have no PATCH/DELETE routes; the planning algorithm does not alter state, while Day 10 next-plan creation first synchronizes historical unapplied scores transactionally.
 
 The response contains enrollment/domain/policy IDs, UTC creation time, typed `decision` and complete `input_snapshot`. The decision records algorithm version, fingerprint, target/focus, shared whole-task `context_key`, action, support, complexity, rationale, requested/estimated/unused minutes, completion conditions and ordered steps. Each step pins its exact activity UUID, selected eligible components, skill, role, support, rationale and full catalog duration. All scope remains synthetic and no formal certification is inferred.
 
-Track A runs independently from content generation. Beginner and experienced evidence bands are internal fixtures; the public API reads stored initial `unknown` state until Day 10 applies recorded evidence. Missing evidence never implies low proficiency. See `13-day-7.md` for deterministic rules and fixture outputs.
+Track A runs independently from content generation. Beginner and experienced profiles remain internal fixtures; Day 10 also supplies authoritative observed bands from scored live evidence. Missing evidence never implies low proficiency. See `13-day-7.md` for deterministic rules and fixture outputs.
 
 ## Day 9 attempts and evidence
 
@@ -152,4 +152,15 @@ Selected responses atomically save the attempt, `selected-response-v1` score and
 
 Terminal reviews accept identical same-reviewer/note/criterion-points retries (200), regardless of criterion order; conflicts return 409. Attempt reads expose the learner's answer and provisional evidence with scorer/rubric provenance, reviewer/note/UTC time, skill/domain, criterion points/maxima and part-task/whole-task kind. Private answer keys/expected responses remain confined to instructor content reads. No client-authoritative score is accepted. Any storage failure rolls back the new transaction and returns sanitized 503.
 
-Learner state is unchanged in Day 9; evidence application is Day 10. See [the Day 9 walkthrough](15-day-9.md) for full examples and limits.
+Day 9 originally left learner state unchanged. Day 10 now extends scoring/retries with transactional evidence application. See [the Day 9 walkthrough](15-day-9.md) for scoring and [Day 10](16-day-10.md) for the current closed loop.
+
+
+## Day 10 transactional learner-state application
+
+Terminal scoring commits score, evidence, affected learner states and one `state_applications` row together. Attempt responses include nullable `state_application` with the fixed policy version, UTC creation time, false certification flag and exact before/after values per affected skill. Criterion codes link each change to the saved score/evidence. Pending written attempts have no new application. New attempt keys count as new observations; exact retries add neither evidence nor revisions.
+
+The provisional `provisional-mastery-v1` policy keeps no-evidence skills unknown, marks observed evidence developing, and requires two whole-task attempts plus at least 80% cumulative whole-task points for secure. Part-task points cannot satisfy that threshold. State reads expose separate criterion counts and whole-task attempt/point totals. These are synthetic engineering bands; they do not certify competencies or establish independent observations.
+
+Learner `POST /api/v1/learners/{learner_id}/enrollments/{enrollment_id}/state/applications` takes exactly `{}` and returns 200 with `{enrollment_id, applied_count, policy_version, formal_certification: false}`. It applies stored unapplied terminal scores without rescoring; repeats return `applied_count: 0`. Missing credentials return 401, denied roles 403, foreign learner/enrollment 404, supplied override fields 422, and database failures sanitized 503. It remains available after archival and has no edit/delete counterpart. Read endpoints never apply scores.
+
+Submission/scoring/exact retries and next-plan requests also synchronize historical scores. Next-plan creation takes its state snapshot after application, producing a new plan when inputs change and reusing identical current inputs. Synchronization performed by a failed request rolls back with that request. The scoring response exposes the saved state transition; requesting the next plan remains a separate learner action with explicit target, budget and policy pins. Old plans and their fingerprints remain replayable. See [Day 10](16-day-10.md) for the policy, migration and complete Swagger walkthrough.

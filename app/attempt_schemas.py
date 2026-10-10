@@ -61,6 +61,35 @@ class ScoreRead(TimestampRead):
     evidence: list[EvidenceRead]
 
 
+class StateValues(StrictInput):
+    band: Literal["unknown", "developing", "secure"]
+    evidence_count: int
+    revision: int
+    whole_task_evidence_count: int
+    part_task_evidence_count: int
+    whole_task_attempt_count: int
+    whole_task_points: int
+    whole_task_max_points: int
+    policy_version: Optional[str]
+
+
+class StateChange(StrictInput):
+    skill_id: UUID
+    criterion_codes: list[str]
+    before: StateValues
+    after: StateValues
+
+
+class StateApplicationRead(TimestampRead):
+    attempt_id: UUID
+    enrollment_id: UUID
+    domain_version_id: UUID
+    policy_version: str
+    changes: list[StateChange]
+    formal_certification: Literal[False]
+    created_at: datetime
+
+
 class AttemptRead(TimestampRead):
     id: UUID
     activity_id: UUID
@@ -73,6 +102,7 @@ class AttemptRead(TimestampRead):
     created_at: datetime
     status: Literal["pending_review", "scored"]
     score: Optional[ScoreRead]
+    state_application: Optional[StateApplicationRead]
 
 
 class AttemptPage(StrictInput):

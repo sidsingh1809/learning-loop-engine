@@ -14,6 +14,10 @@ class PlanningError(ValueError):
 
 def canonical_snapshot(snapshot: PlannerInput):
     values = snapshot.model_dump(mode="json")
+    # Preserve fingerprints of immutable Day 7-9 snapshots predating this field.
+    for state in values["states"]:
+        if state["policy_version"] is None:
+            del state["policy_version"]
     for name, key in [("skills", lambda x: (x["code"], x["id"])),
                       ("states", lambda x: x["skill_id"]),
                       ("activities", lambda x: x["id"])]:

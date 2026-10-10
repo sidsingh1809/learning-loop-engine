@@ -1,5 +1,28 @@
 # Verification log
 
+## Day 10 — October 10, 2026
+
+User verification: the developer reported completing all Day 10 terminal and Swagger tests on October 10, 2026. Developer time: 4 hours. This is user-reported verification; individual response payloads were not supplied in chat.
+
+| Check | Measured result |
+|---|---|
+| `docker compose --profile test run --build --rm tests python -m pytest -q -x --tb=short` | **436 passed**, no skips; 22.13 seconds |
+| Supplemental host suite | 345 passed; 91 MySQL checks deselected; 1.68 seconds |
+| Runtime/database | Python 3.9.21; MySQL 8.4; local head `0010_state_application` |
+| Complete loop | API-driven unknown → developing, selected practice, whole-task return → secure; updated next plan fades support; old snapshots retained |
+| State policy | Versioned provisional threshold, failed observations distinct from unknown, at least two whole-task attempts, exact 80% boundary, part-task exclusion, multiple criteria count once per revision, poor whole-task evidence can lower band |
+| Atomicity | State-update/history-insert failures roll back selected attempt/score/evidence and written score/evidence; written answer remains pending; historical batch failure rolls back every application; retry succeeds |
+| Retries/concurrency | Identical submission/review replay adds no evidence or revisions; three different simultaneous reviews retain all revisions; concurrent historical synchronization applies two scores once, with counts 2/0/0 |
+| Historical records | Day 9 evidence applies through explicit sync, next-plan request, exact submission retry or review retry; evidence rows remain unchanged; pending answers still need review |
+| Authorization/integrity | Own-learner synchronization, role/foreign learner denial, override-field rejection; observed/secure SQL constraints, application enrollment/domain lineage and false certification flag enforced |
+| Migration lifecycle | Fresh/base and existing lifecycle checks; populated Day 9 original columns/rows survive downgrade/re-upgrade; Alembic schema comparison passes; observed-state downgrade rejected before DDL |
+| Local preservation | All 18 previous table counts and original-column row hashes match across migration, including 3 scores and 6 evidence rows; zero applications immediately after migration |
+| Live walkthrough | Applied 3 historical scores; saved attempt `88f5d5f8-497a-4a68-81bb-fb4b167c23f9`; EXPRESSIONS unknown → developing and DEBUGGING revision 3 → 4; next plan `a0a269b5-5b49-4463-a5f2-4200f4c5e39f`; submission/review/plan/sync replay stable |
+
+The retained synthetic learner now has VARIABLES secure (revision 3), EXPRESSIONS developing (revision 1), DEBUGGING secure (revision 4), and three remaining unknown skills. Four immutable applications trace the three historical scores and one new score. The new plan targets DEBUGGING while retaining EXPRESSIONS as its prerequisite focus. Whole-task counts are explicit; no part-task score was submitted in this live walkthrough. The disposable API integration test verifies the selected-practice path using evidence-created state.
+
+These checks establish prototype transaction/idempotency behavior, not educational validity. Mastery thresholds remain provisional, repeated template attempts do not establish independence, and instructor approval is a synthetic workflow. University/expert review, policy calibration, context variation, continuity, AI provider integration, identity assignments and production readiness remain outstanding. The API/database remain healthy locally.
+
 ## Day 9 — October 9, 2026
 
 User verification: the developer reported all Day 9 Swagger tests completed on October 9, 2026, following the submission, retry/validation, instructor scoring and learner-access walkthrough. This is user-reported verification; individual response payloads were not supplied in chat.

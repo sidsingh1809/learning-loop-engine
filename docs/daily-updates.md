@@ -176,6 +176,29 @@ The live HTTP demo reused the retained plan, approved generation and synthetic c
 
 Learner-state bands, counts and revisions remain unchanged pending Day 10. Programmatic synthetic instructor scoring does not establish expert/university approval or learning efficacy. Instructor assignment restrictions, regrading, continuity and provider integration remain later work. No AI provider call, code execution, formal certification or real learner data was introduced.
 
-## Next-session handoff
+## Day 9 handoff (historical)
 
 Start Day 10 in `04-daily-plan.md`: define an explicit versioned provisional state-update policy and apply immutable evidence transactionally with history/provenance. Preserve unknown versus observed evidence, part-task versus whole-task boundaries, and deterministic plan snapshots. Verify that a scored attempt changes eligible state and the next plan, while submission/review retries cannot apply evidence twice. Day 9 already prevents duplicate attempt/score/evidence storage; Day 10 must extend that guarantee to state application, including existing pending/scored records. Re-estimate after the complete closed-loop demonstration. Keep first-provider integration scheduled for Days 12–13.
+
+
+## Day 10 completed — October 10, 2026
+
+Time spent: 4 hours, reported by the developer.
+
+User verification: the developer reported completing all Day 10 terminal and Swagger tests on October 10, 2026, including the learning loop, replay protection, validation and authorization checks. This is user-reported verification; individual response payloads were not supplied in chat.
+
+Implemented the first complete synthetic learning loop. Terminal scores now apply immutable evidence to enrollment skill states and append an immutable per-attempt application record in one transaction. Pending written answers leave their own evidence unapplied until instructor scoring. Attempts expose the exact policy version and before/after skill transitions, while state reads separate whole-task/part-task criterion counts, whole-task attempt counts and cumulative whole-task points. Next-plan creation consumes the current state; original plan snapshots remain replayable.
+
+The explicit `provisional-mastery-v1` policy distinguishes unknown from observed developing performance. Secure requires at least two whole-task attempts and 80% cumulative whole-task points for a skill. Part-task points never satisfy the secure threshold. The policy is an uncalibrated engineering rule for synthetic data, with no competency certification or claim of independent observations. A new key records a new attempt even on repeated content; exact HTTP retries add no evidence or revision.
+
+Migration `0010_state_application` adds one application-history table and extends skill states without altering earlier migrations or original data. Course/enrollment locking serializes scoring, synchronization and planning, and current reads prevent stale state under MySQL repeatable-read. Existing Day 9 terminal scores apply through an own-learner empty-body API, next-plan creation or scoring/submission/review retries. Historical evidence is reused unchanged. Downgrade refuses before DDL when observed state exists rather than resetting it.
+
+Evidence: **436 tests passed** in Python 3.9.21 against MySQL 8.4, with no skips (22.13 seconds). Checks include the API-driven unknown → developing → secure loop and faded-support next plan, separate selected-practice progress, exact retry behavior, simultaneous distinct reviews, concurrent historical synchronization, state/history rollback for both scoring paths, historical batch rollback, authorization, SQL integrity, populated migration preservation and schema agreement. The supplemental host suite passed 345 tests. All eighteen pre-existing local table counts and original-column row hashes matched across migration.
+
+The live HTTP walkthrough applied three retained Day 9 scores without rewriting their six evidence rows. It then saved attempt `88f5d5f8-497a-4a68-81bb-fb4b167c23f9`, moved EXPRESSIONS from unknown to developing and DEBUGGING from revision 3 to 4, and saved next plan `a0a269b5-5b49-4463-a5f2-4200f4c5e39f`. Submission/review/plan/synchronization replay preserved the saved result and state. Four applications now trace the retained pilot's scores; VARIABLES/DEBUGGING are secure under the provisional rule, EXPRESSIONS is developing, and three skills remain unknown. API/database health is retained. See `16-day-10.md` and `verification.md`.
+
+Day 10 estimate review: retain Day 20 as the engineering prototype target, with ten work sessions remaining (approximately 30–60 hours at the existing assumption). This is not a production commitment. Expert/university review, policy calibration, university identity/instructor assignments and real-data readiness remain unresolved. No AI provider call, code execution, formal certification or real learner data was introduced.
+
+## Next-session handoff
+
+Start Day 11 in `04-daily-plan.md`: resumption, generation history, context variation and an explicitly experimental review schedule. Preserve immutable attempts/evidence/application history, versioned provisional bands, whole-task boundaries, deterministic old plan replay and exact retries. Do not infer new evidence or reset mastery merely because time elapsed. Keep the single-provider integration direction scheduled for Days 12–13.

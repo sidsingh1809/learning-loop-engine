@@ -90,10 +90,11 @@ def main():
     assert "expected_response" not in json.dumps(scored) and "correct_choice_id" not in json.dumps(scored)
     request("POST", path + "/review", [409], instructor_key, {**review, "note": "Changed terminal score"})
     assert any(a["id"] == attempt["id"] for a in request("GET", ap + "/attempts", [200])["items"])
-    assert request("GET", state_path, [200]) == before
+    assert request("GET", state_path, [200]) != before
+    assert scored["state_application"] is not None
     print("Saved attempt: " + attempt["id"])
-    print("Verified immutable evidence, private rubric keys, retry/conflict handling, learner isolation and unchanged state.")
-    print("Day 10 will apply evidence to state; no AI provider or real learner data was used.")
+    print("Verified immutable evidence, private rubric keys, retry/conflict handling and learner isolation.")
+    print("Day 10 now applies scored evidence transactionally; no AI provider or real learner data was used.")
 
 
 if __name__ == "__main__":

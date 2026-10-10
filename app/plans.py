@@ -15,6 +15,7 @@ from app.models import ActivityVariant, Course, DomainVersion, Enrollment, Learn
 from app.planner import PlanningError, build_plan, canonical_snapshot
 from app.planner_schemas import PlanCreate, PlanRead, PlannerInput, SkillSnapshot, StateSnapshot
 from app.security import require_learner
+from app.state_updates import apply_pending_scores
 
 router = APIRouter(tags=["loop plans"], dependencies=[Depends(require_learner)],
                    responses={401: {"description": "Missing or invalid credentials"},
@@ -41,6 +42,8 @@ def create_plan(learner_id: UUID, payload: PlanCreate, response: Response,
     enrollment = session.scalar(select(Enrollment).where(Enrollment.id == enrollment.id).with_for_update())
     if course.archived_at is not None or domain.status != "published" or enrollment.status != "active":
         raise HTTPException(409, "Planning requires an active enrollment/course and published domain")
+    # Historical Day 9 scores join the loop before taking the next input snapshot.
+    applied_count = apply_pending_scores(enrollment, session)
     skills, edges = load_graph(domain.id, session)
     if str(payload.target_skill_id) not in {s.id for s in skills}:
         raise HTTPException(404, "Target skill not found in enrolled domain")
@@ -66,6 +69,8 @@ def create_plan(learner_id: UUID, payload: PlanCreate, response: Response,
         LoopPlan.enrollment_id == enrollment.id, LoopPlan.input_fingerprint == decision.input_fingerprint).with_for_update())
     if plan is not None:
         response.status_code = 200
+        if applied_count:
+            session.commit()
     else:
         plan = LoopPlan(enrollment_id=enrollment.id, domain_version_id=domain.id,
                         target_skill_id=str(decision.target_skill_id),
