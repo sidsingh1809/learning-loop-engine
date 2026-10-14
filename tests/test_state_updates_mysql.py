@@ -235,11 +235,21 @@ def test_downgrade_refuses_observed_state_before_ddl(mysql_client, mysql_engine,
     from sqlalchemy import inspect, text
     from app.config import get_settings
     from app.database import get_engine
+    from app.models import ReviewSchedule
     scored(mysql_client, role_headers, ready[0])
     monkeypatch.setenv("DATABASE_URL", os.environ["TEST_DATABASE_URL"])
     get_settings.cache_clear()
     get_engine.cache_clear()
     try:
+        with pytest.raises(RuntimeError, match="Cannot downgrade retained continuity data"):
+            command.downgrade(Config("alembic.ini"), "0010_state_application")
+        with mysql_engine.connect() as conn:
+            assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "0011_continuity"
+            assert conn.scalar(select(func.count()).select_from(ReviewSchedule)) == 2
+        # Remove only disposable reminders to exercise the existing Day 10 guard.
+        with mysql_engine.begin() as conn:
+            conn.execute(ReviewSchedule.__table__.delete())
+        command.downgrade(Config("alembic.ini"), "0010_state_application")
         with pytest.raises(RuntimeError, match="Cannot downgrade observed learner state"):
             command.downgrade(Config("alembic.ini"), "0009_attempts")
         assert "state_applications" in inspect(mysql_engine).get_table_names()
@@ -247,6 +257,7 @@ def test_downgrade_refuses_observed_state_before_ddl(mysql_client, mysql_engine,
             assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "0010_state_application"
             assert conn.scalar(select(func.count()).select_from(StateApplication)) == 1
     finally:
+        command.upgrade(Config("alembic.ini"), "head")
         get_engine().dispose()
         get_engine.cache_clear()
         get_settings.cache_clear()

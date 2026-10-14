@@ -9,8 +9,11 @@ from app.catalog_schemas import ActivityType, Component, ReviewStatus, StrictInp
 from app.learner_schemas import TimestampRead
 
 
+ContextVariant = Literal["positive-sales-v1", "positive-donations-v1"]
+
+
 class GenerationCreate(StrictInput):
-    pass
+    context_variant: ContextVariant = "positive-sales-v1"
 
 
 class Choice(StrictInput):
@@ -89,7 +92,7 @@ class GeneratedStep(StrictInput):
     support_level: Literal["high", "minimal"]
     estimated_minutes: StrictInt = Field(gt=0, le=180)
     context_key: str = Field(min_length=1, max_length=200)
-    scenario_id: Literal["positive-sales-v1"]
+    scenario_id: ContextVariant
     content: Content
     rubric: Rubric
 
@@ -104,7 +107,7 @@ class GeneratedStep(StrictInput):
 
 class GeneratedSequence(StrictInput):
     generator_version: Literal["track-b-template-v1"]
-    template_version: Literal["positive-sales-v1"]
+    template_version: ContextVariant
     plan_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
     learning_science_policy_id: UUID
     safety_policy_id: UUID
@@ -126,6 +129,7 @@ class GenerationRead(TimestampRead):
     loop_plan_id: UUID
     generator_version: str
     template_version: str
+    context_variant: ContextVariant
     content_hash: str
     review_status: ReviewStatus
     review_scope: Literal["synthetic_only"]

@@ -15,6 +15,7 @@ from app.learners import router as learners_router
 from app.plans import router as plans_router
 from app.activities import router as activities_router
 from app.attempts import router as attempts_router
+from app.continuity import router as continuity_router
 
 
 @asynccontextmanager
@@ -25,8 +26,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Learning Loop Engine API",
-    version="0.10.0",
-    description="Day 10 transactional provisional state application and the complete learning loop.",
+    version="0.11.0",
+    description="Day 11 continuity, context variants and experimental review reminders.",
     lifespan=lifespan,
 )
 app.include_router(courses_router, prefix="/api/v1")
@@ -36,6 +37,7 @@ app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(plans_router, prefix="/api/v1")
 app.include_router(activities_router, prefix="/api/v1")
 app.include_router(attempts_router, prefix="/api/v1")
+app.include_router(continuity_router, prefix="/api/v1")
 
 
 @app.exception_handler(SQLAlchemyError)
@@ -65,10 +67,12 @@ def ready(session: Session = Depends(get_session)):
     session.execute(text("SELECT activity_variant_id, component, rationale FROM component_activity_mappings LIMIT 1"))
     session.execute(text("SELECT id, enrollment_id, input_fingerprint, input_snapshot, decision FROM loop_plans LIMIT 1"))
     session.execute(text("SELECT loop_plan_id, position, activity_variant_id, components FROM loop_steps LIMIT 1"))
-    session.execute(text("SELECT id, loop_plan_id, generator_version, content_hash, review_status FROM activity_generations LIMIT 1"))
+    session.execute(text("SELECT id, loop_plan_id, generator_version, context_variant, content_hash, review_status FROM activity_generations LIMIT 1"))
     session.execute(text("SELECT id, generation_id, loop_plan_id, position, payload FROM activities LIMIT 1"))
     session.execute(text("SELECT id, activity_id, enrollment_id, response, request_hash FROM attempts LIMIT 1"))
     session.execute(text("SELECT attempt_id, scorer_version, rubric_version, reviewed_by FROM attempt_scores LIMIT 1"))
     session.execute(text("SELECT attempt_id, criterion_code, skill_id, points, max_points FROM evidence LIMIT 1"))
     session.execute(text("SELECT attempt_id, enrollment_id, domain_version_id, policy_version, changes FROM state_applications LIMIT 1"))
+    session.execute(text("SELECT activity_id, created_at FROM activity_completions LIMIT 1"))
+    session.execute(text("SELECT enrollment_id, skill_id, source_attempt_id, policy_version, due_at FROM review_schedules LIMIT 1"))
     return {"status": "ready"}

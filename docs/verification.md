@@ -1,5 +1,29 @@
 # Verification log
 
+## Day 11 — October 12, 2026
+
+User verification (October 14, 2026): the developer reported completing all Day 11 terminal and Swagger tests. Developer time: **5 hours** (user-reported). The supplied before/after learner-state payloads match exactly for all six skills, including counts, revisions, points, bands, policy versions and timestamps. Other manual test results were not supplied individually.
+
+| Check | Measured result |
+|---|---|
+| `docker compose --profile test run --build --rm tests` | **459 passed**, no skips; 24.24 seconds |
+| Supplemental host suite | 361 passed; 98 MySQL checks deselected; 1.93 seconds |
+| Runtime/database | Python 3.9.21; MySQL 8.4; local head `0011_continuity`; API healthy |
+| Migration preservation | All nineteen existing table counts and original-column row hashes matched before/after the local migration; no historical state/evidence was rewritten |
+| Disposable migration lifecycle | Fresh upgrade/base downgrade and populated earlier migration paths passed; Day 11→Day 10→Day 11 preserved earlier records; sales context backfill and Alembic model/schema comparison passed |
+| Resumption | Independent HTTP reads retain exact generation/activity IDs, support acknowledgment and attempt IDs; pending written work stays pending until scored; terminal scores complete participation even without mastery success |
+| Context variation/history | Sales/donations have different payloads/hashes/IDs with preserved plan alignment; independent review gates, learner isolation, bounded history pagination and concurrent same-context reuse passed |
+| Review schedule | Seven days from terminal whole-task score; no pending/part-task/support reminder; exact due-time boundary checked with a test-only server clock; secure bands and state revisions remain unchanged on due reads |
+| Retry/backfill | Original scoring time anchors due dates; submission/review/sync retries do not postpone review or reapply evidence; explicit write sync reconstructs historical reminders without changing state |
+| Atomicity/concurrency | Schedule failure rolls back score/evidence/state/application; acknowledgment insertion failure leaves no progress; concurrent acknowledgments/generations reuse one record; existing simultaneous score/state tests pass |
+| Downgrade guard | Retained reminders block Day 11 downgrade before DDL; after removing only disposable reminders, the existing observed-state Day 10 guard still refuses its destructive downgrade |
+| Template compatibility | Unknown/beginner/experienced sales payloads and hashes match the pre-Day-11 generator exactly |
+| Live walkthrough and restart | `scripts/demo_day11.py --plan-id a0a269b5-5b49-4463-a5f2-4200f4c5e39f` passed before and after API restart; same donations generation/acknowledgment/next activity; unchanged state and original plan; four upcoming reviews, zero currently due |
+
+The first complete run passed 456 checks and exposed one real MySQL repeatable-read defect plus two stale test assumptions. Reminder scheduling now reads the terminal score with a current locking query after waiting on the enrollment lock, rather than looking it up through an earlier snapshot. The other checks were corrected for the acknowledgment response and the new earlier downgrade guard. The final suite passed all 459 checks. This is targeted synthetic correctness evidence, not a throughput or learning-efficacy claim.
+
+The live walkthrough created donations generation `e6fd7138-ee82-4f07-a1a4-7b369771ec90`, acknowledged worked example `618c45d6-32b6-4eab-af1d-109ea3f110ed` and resumed at activity `5cc120f8-e094-4456-ab96-f6b66f6bb732`. Historical synchronization reported zero state applications while backfilling four reminders. No attempt, evidence, state revision, provider call or real learner data was added by this walkthrough. The seven-day interval remains explicitly experimental. Personal developer verification was reported complete on October 14, 2026, with five hours spent.
+
 ## Day 10 — October 10, 2026
 
 User verification: the developer reported completing all Day 10 terminal and Swagger tests on October 10, 2026. Developer time: 4 hours. This is user-reported verification; individual response payloads were not supplied in chat.

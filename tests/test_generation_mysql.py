@@ -122,8 +122,8 @@ def test_generation_activity_insert_failure_rolls_back(mysql_client, mysql_engin
 def test_invalid_adapter_output_leaves_no_generation(mysql_client, mysql_engine, role_headers, planning, monkeypatch):
     import app.activities as api
     original = api.build_sequence
-    def invalid(snapshot, decision):
-        values = original(snapshot, decision).model_dump(mode="json")
+    def invalid(snapshot, decision, context_variant):
+        values = original(snapshot, decision, context_variant).model_dump(mode="json")
         values["steps"].reverse()
         return values
     monkeypatch.setattr(api, "build_sequence", invalid)

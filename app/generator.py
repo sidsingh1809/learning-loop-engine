@@ -54,6 +54,8 @@ def validate_output(raw, snapshot: PlannerInput, decision: DecisionRead) -> Gene
             or result.estimated_minutes != decision.estimated_minutes
             or len(result.steps) != len(decision.steps)):
         raise GenerationError("Generated sequence changes plan provenance or duration")
+    if {step.scenario_id for step in result.steps} != {result.template_version}:
+        raise GenerationError("Generated sequence mixes context variants")
     catalog = {str(a.id): a for a in snapshot.activities}
     for output, planned in zip(result.steps, decision.steps):
         for name in ["position", "role", "skill_id", "activity_variant_id", "components", "support_level", "estimated_minutes"]:
@@ -81,9 +83,23 @@ def validate_output(raw, snapshot: PlannerInput, decision: DecisionRead) -> Gene
     return result
 
 
-def build_sequence(snapshot: PlannerInput, decision: DecisionRead) -> GeneratedSequence:
+def build_sequence(snapshot: PlannerInput, decision: DecisionRead, context_variant=TEMPLATE_VERSION) -> GeneratedSequence:
     focus = validate_plan(snapshot, decision)
-    instruction, expected = FOCUS[focus.code]
+    if context_variant not in {TEMPLATE_VERSION, "positive-donations-v1"}:
+        raise GenerationError("Unsupported context variant")
+    donations = context_variant == "positive-donations-v1"
+    item, collection, label = ("donation", "donations", "positive-donations") if donations else ("sale", "sales", "positive-sales")
+    first, last, total = (6, 2, 8) if donations else (4, 3, 7)
+    code = "donations = [6, -3, 2]\ntotal = 0\nfor donation in donations:\n    if donation > 0:\n        total = donation\nprint(total)" if donations else CODE
+    scenario = "A synthetic charity needs the sum of positive donations [6, -3, 2]. The expected total is 8, but this program prints 2." if donations else SCENARIO
+    focus_text = {
+        "VARIABLES": ("Trace total before and after each assignment.", "The assignment replaces total: 0 becomes 6, then 2. Use total += donation to retain the running sum."),
+        "EXPRESSIONS": ("Compare total = donation with total = total + donation.", "Replacement gives 2; accumulation evaluates 6 + 2 to produce 8."),
+        "CONDITIONALS": ("Identify which donations satisfy donation > 0 and which updates are skipped.", "6 and 2 enter the branch; -3 is skipped. Only positive donations should update the sum."),
+        "LOOPS": ("Trace each loop iteration, including the skipped negative donation.", "Three iterations visit 6, -3 and 2; accumulation leaves totals 6, 6 and 8."),
+        "DEBUGGING": ("Compare expected and observed behavior, locate the faulty update and justify a repair.", "total = donation overwrites the accumulated value. Replace it with total += donation and check that [6, -3, 2] produces 8."),
+    } if donations else FOCUS
+    instruction, expected = focus_text[focus.code]
     catalog = {str(a.id): a for a in snapshot.activities}
     steps = []
     for planned in decision.steps:
@@ -91,37 +107,37 @@ def build_sequence(snapshot: PlannerInput, decision: DecisionRead) -> GeneratedS
         rubric = {"version": "synthetic-rubric-v1", "scoring_method": "none", "criteria": [],
                   "max_points": 0, "formal_certification": False}
         if kind == "worked_example":
-            content = {"activity_type": kind, "prompt": SCENARIO + " " + instruction, "code": CODE,
-                       "explanation": expected + " Repair the update with total += sale; the full positive-sales task then produces 7.",
+            content = {"activity_type": kind, "prompt": scenario + " " + instruction, "code": code,
+                       "explanation": expected + f" Repair the update with total += {item}; the full {label} task then produces {total}.",
                        "supportive_information": "Compare expected and observed behavior. Trace a small case to locate the defect; verify the repair against the whole requirement." if "supportive_information" in planned.components else None,
-                       "procedural_information": instruction + " Start with total = 0, visit each sale and record the updated value." if "procedural_information" in planned.components else None}
+                       "procedural_information": instruction + f" Start with total = 0, visit each {item} and record the updated value." if "procedural_information" in planned.components else None}
         elif kind == "selected_response":
             # Planner permits this only for developing routine automaticity skills.
             expression = focus.code == "EXPRESSIONS"
             content = {"activity_type": kind,
-                       "prompt": "In the same sales task, total is 4 and sale is 3. " + ("What does total + sale evaluate to?" if expression else "After total = sale, what value is stored in total?"),
-                       "choices": [{"id": "a", "text": "3"}, {"id": "b", "text": "7"}, {"id": "c", "text": "4"}],
+                       "prompt": f"In the same {collection} task, total is {first} and {item} is {last}. " + (f"What does total + {item} evaluate to?" if expression else f"After total = {item}, what value is stored in total?"),
+                       "choices": [{"id": "a", "text": str(last)}, {"id": "b", "text": str(total)}, {"id": "c", "text": str(first)}],
                        "correct_choice_id": "b" if expression else "a",
-                       "explanation": "4 + 3 evaluates to 7." if expression else "Assignment replaces the previous value with 3; it does not accumulate."}
+                       "explanation": f"{first} + {last} evaluates to {total}." if expression else f"Assignment replaces the previous value with {last}; it does not accumulate."}
             if focus.code not in {"VARIABLES", "EXPRESSIONS"}:
                 raise GenerationError("No automaticity template exists for this focus")
             rubric.update(scoring_method="selected_response", max_points=1,
                           criteria=[{"code": "FOCUS", "skill_id": decision.focus_skill_id, "description": instruction,
                                      "max_points": 1, "expected_response": content["correct_choice_id"]}])
         else:
-            content = {"activity_type": kind, "prompt": SCENARIO + " Repair the program and explain why the repair meets the positive-sales requirement.",
-                       "code": CODE, "response_instructions": "Submit a corrected update, a trace, and a justification. " + instruction + " Code is read as text; it is not executed."}
+            content = {"activity_type": kind, "prompt": scenario + f" Repair the program and explain why the repair meets the {label} requirement.",
+                       "code": code, "response_instructions": "Submit a corrected update, a trace, and a justification. " + instruction + " Code is read as text; it is not executed."}
             criteria = [{"code": "TARGET", "skill_id": decision.target_skill_id,
                          "description": "Locate the defect, justify the repair and verify the whole-task requirement.",
-                         "max_points": 2, "expected_response": "Replace total = sale with total += sale. The trace is 4, 4, 7. Explain replacement versus accumulation and check zero/negative-only inputs."}]
+                         "max_points": 2, "expected_response": f"Replace total = {item} with total += {item}. The trace is {first}, {first}, {total}. Explain replacement versus accumulation and check zero/negative-only inputs."}]
             if decision.focus_skill_id != decision.target_skill_id:
                 criteria.append({"code": "FOCUS", "skill_id": decision.focus_skill_id, "description": instruction,
                                  "max_points": 1, "expected_response": expected})
             rubric.update(scoring_method="instructor_review", criteria=criteria, max_points=sum(c["max_points"] for c in criteria))
         steps.append({**planned.model_dump(mode="json", exclude={"rationale"}),
                       "target_skill_id": decision.target_skill_id, "focus_skill_id": decision.focus_skill_id,
-                      "context_key": decision.context_key, "scenario_id": TEMPLATE_VERSION, "content": content, "rubric": rubric})
-    return validate_output({"generator_version": GENERATOR_VERSION, "template_version": TEMPLATE_VERSION,
+                      "context_key": decision.context_key, "scenario_id": context_variant, "content": content, "rubric": rubric})
+    return validate_output({"generator_version": GENERATOR_VERSION, "template_version": context_variant,
                             "plan_fingerprint": decision.input_fingerprint,
                             "learning_science_policy_id": snapshot.learning_science_policy.id,
                             "safety_policy_id": snapshot.safety_policy.id,

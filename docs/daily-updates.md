@@ -202,3 +202,30 @@ Day 10 estimate review: retain Day 20 as the engineering prototype target, with 
 ## Next-session handoff
 
 Start Day 11 in `04-daily-plan.md`: resumption, generation history, context variation and an explicitly experimental review schedule. Preserve immutable attempts/evidence/application history, versioned provisional bands, whole-task boundaries, deterministic old plan replay and exact retries. Do not infer new evidence or reset mastery merely because time elapsed. Keep the single-provider integration direction scheduled for Days 12–13.
+
+
+## Day 11 completed — October 14, 2026
+
+Implementation and automated verification: October 12, 2026. Developer reported completing all Day 11 terminal and Swagger tests on October 14, 2026. Time spent: **5 hours** (user-reported).
+
+### Implemented
+
+Continuity across sessions now has learner-owned enrollment plan history, plan generation history, generation progress and an explicit unscored-support acknowledgment. Saved progress comes from durable acknowledgments plus immutable attempts/scores. Written work remains pending until instructor scoring; terminal scores complete participation without claiming mastery. No new plan or content is needed to resume the same sequence.
+
+Generation accepts two explicit synthetic contexts: original positive sales and positive donations with different values, variables, prompts, traces, choices and aligned rubrics. Each plan/generator/context is reused idempotently, retained in history and independently reviewed. Original sales content hashes and old planner snapshots remain unchanged. The provisional mastery policy still does not require independent contexts.
+
+`experimental-review-v1` maintains a separate seven-day reminder per skill after scored whole-task evidence. Due reviews expose unchanged mastery and provenance. Reads, pending answers, part-task scores, acknowledgments and exact retries cannot reset mastery or postpone a reminder. Reminder writes commit with ordinary score/evidence/state/application updates. Existing write synchronization backfills reminders from historical scores without applying state again. No automatic planner reprioritization, notification service or validated spacing claim is introduced.
+
+Migration `0011_continuity` adds completion/reminder tables and a generation context key, preserving all nineteen existing tables' original-column data. Downgrade refuses before DDL if Day 11 continuity records would be lost. The running API has the new migration and remained healthy after a restart.
+
+### Verification
+
+**459 tests passed**, no skips, in Python 3.9.21 against MySQL 8.4 (24.24 seconds). The supplemental host suite passed 361 checks. Coverage includes stable concurrent generation/acknowledgment retries, learner isolation, pending/terminal progress, independent reviews, due-time boundaries with unchanged secure state, historical backfill, part-task exclusion, schedule-write rollback, populated migration preservation and existing concurrent state-application checks. A stale-snapshot terminal-score lookup exposed by the first run was corrected with a current locking read.
+
+The live Day 11 demo passed before and after API restart. Donations generation `e6fd7138-ee82-4f07-a1a4-7b369771ec90` resumes at `5cc120f8-e094-4456-ab96-f6b66f6bb732` with its worked example already acknowledged. State and old plans stayed unchanged; historical synchronization added four upcoming reminders with zero currently due. Automated tests, rather than changes to live timestamps, demonstrated due review behavior. No attempts/evidence, AI provider calls or real student data were added by the continuity walkthrough.
+
+Personal terminal/Swagger checks are complete as reported by the developer. The learner-state response supplied before and after the continuity checks matches exactly across all six skills, including bands, evidence counters, revisions, points, policy versions and timestamps. Other manual checks are recorded as user-reported completion. Use `17-day-11.md` for the acceptance walkthrough and `verification.md` for detailed evidence. Day 11 is complete; this does not claim expert/university approval or calibrated learning outcomes.
+
+### Next session
+
+Day 12: add a generation-provider interface and one selected AI provider/model with server-side credentials and explicit prompt versions. Retain the template adapter, frozen plan provenance, validation/review boundaries and continuity behavior. Durable provider jobs, timeouts/retries and generation request keys remain Day 13. Provider/model selection, expert review and university identity inputs remain unresolved.

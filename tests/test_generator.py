@@ -120,3 +120,27 @@ def test_saved_plan_cannot_be_overridden_and_unsupported_target_is_explicit():
     snapshot = PlannerInput(**values)
     with pytest.raises(GenerationError, match="DEBUGGING"):
         build_sequence(snapshot, build_plan(snapshot))
+
+
+@pytest.mark.parametrize("profile", ["unknown", "beginner", "experienced"])
+def test_context_variants_are_distinct_connected_and_repeatable(profile):
+    snapshot = synthetic_input(profile)
+    plan = build_plan(snapshot)
+    original = build_sequence(snapshot, plan)
+    alternate = build_sequence(snapshot, plan, "positive-donations-v1")
+    assert alternate == build_sequence(snapshot, plan, "positive-donations-v1")
+    assert content_hash(original) != content_hash(alternate)
+    assert {s.scenario_id for s in alternate.steps} == {"positive-donations-v1"}
+    assert {s.context_key for s in alternate.steps} == {plan.context_key}
+    assert "[6, -3, 2]" in alternate.steps[-1].content.code
+    assert "total += donation" in alternate.steps[-1].rubric.criteria[0].expected_response
+    assert "6, 6, 8" in alternate.steps[-1].rubric.criteria[0].expected_response
+    if profile == "beginner":
+        assert [c.text for c in alternate.steps[1].content.choices] == ["2", "8", "6"]
+        assert alternate.steps[1].content.correct_choice_id == "a"
+    mixed = alternate.model_dump(mode="json")
+    mixed["steps"][0]["scenario_id"] = "positive-sales-v1"
+    with pytest.raises(GenerationError, match="mixes"):
+        validate_output(mixed, snapshot, plan)
+    with pytest.raises(GenerationError, match="Unsupported context"):
+        build_sequence(snapshot, plan, "invented")

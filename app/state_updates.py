@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.models import Attempt, AttemptScore, Course, Enrollment, Evidence, LearnerSkillState, StateApplication, utc_now
+from app.review_schedule import schedule_whole_task_review
 from app.state_policy import STATE_FIELDS, STATE_POLICY_VERSION, advance_state
 
 
@@ -30,12 +31,15 @@ def apply_pending_scores(enrollment, session):
     applied = 0
     for attempt in attempts:
         existing = session.scalar(select(StateApplication).where(StateApplication.attempt_id == attempt.id).with_for_update())
-        if existing is not None:
-            continue
         rows = session.scalars(select(Evidence).where(Evidence.attempt_id == attempt.id)
                                .order_by(Evidence.criterion_code).with_for_update()).all()
         if not rows:
             raise HTTPException(409, "Scored attempt has no evidence to apply")
+        score = session.scalar(select(AttemptScore).where(AttemptScore.attempt_id == attempt.id)
+                               .with_for_update().execution_options(populate_existing=True))
+        schedule_whole_task_review(attempt, score, rows, session)
+        if existing is not None:
+            continue
         grouped = defaultdict(list)
         for row in rows:
             grouped[row.skill_id].append(row)

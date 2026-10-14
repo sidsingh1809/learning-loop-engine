@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import get_engine, get_session
 from app.main import app
-from app.models import (StateApplication, Attempt, AttemptScore, Evidence, Activity, ActivityGeneration, ActivityVariant, ComponentActivityMapping, PolicyVersion,
+from app.models import (ActivityCompletion, ReviewSchedule, StateApplication, Attempt, AttemptScore, Evidence, Activity, ActivityGeneration, ActivityVariant, ComponentActivityMapping, PolicyVersion,
                         Competency, Course, DomainVersion, Enrollment, Learner, LearnerSkillState, LoopPlan, LoopStep, Skill, SkillPrerequisite)
 
-CLEANUP_MODELS = (StateApplication, Evidence, AttemptScore, Attempt, Activity, ActivityGeneration, LoopStep, LoopPlan, ComponentActivityMapping, ActivityVariant, PolicyVersion,
+CLEANUP_MODELS = (ReviewSchedule, ActivityCompletion, StateApplication, Evidence, AttemptScore, Attempt, Activity, ActivityGeneration, LoopStep, LoopPlan, ComponentActivityMapping, ActivityVariant, PolicyVersion,
                   LearnerSkillState, Enrollment, Learner, SkillPrerequisite, Skill, Competency, DomainVersion, Course)
 
 TEST_API_KEY = "synthetic-test-key-32-characters-long"
@@ -229,6 +229,19 @@ def mysql_engine():
                 attempt_id="migration-attempt", criterion_code="FOCUS",
                 domain_version_id="00000000-0000-0000-0000-000000000003",
                 skill_id="00000000-0000-0000-0000-000000000005", points=1, max_points=1, evidence_kind="part_task"))
+        # Day 11 preserves populated Day 10 generations, attempts and state.
+        command.downgrade(config, "0010_state_application")
+        with get_engine().connect() as connection:
+            before_day11 = {table: connection.execute(text("SELECT * FROM " + table)).mappings().all()
+                            for table in (*day8_tables, "attempts", "attempt_scores", "evidence", "state_applications")}
+        command.upgrade(config, "head")
+        with get_engine().connect() as connection:
+            for table, expected in before_day11.items():
+                columns = [c for c in expected[0]] if expected else [c["name"] for c in inspect(connection).get_columns(table)]
+                quoted = [connection.dialect.identifier_preparer.quote(c) for c in columns]
+                assert connection.execute(text("SELECT " + ", ".join(quoted) + " FROM " + table)).mappings().all() == expected
+            assert connection.scalar(select(ActivityGeneration.context_variant)) == "positive-sales-v1"
+        command.check(config)
         # Day 10 preserves all Day 9 rows, including scored but unapplied evidence.
         command.downgrade(config, "0009_attempts")
         assert "state_applications" not in inspect(get_engine()).get_table_names()

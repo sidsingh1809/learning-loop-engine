@@ -51,7 +51,7 @@ def test_readiness_requires_generation_migration(client, table):
 
 def test_generation_openapi_documents_security_and_immutable_reads(client):
     paths = client.get("/openapi.json").json()["paths"]
-    expected = {"/api/v1/loop-plans/{plan_id}/generations": {"post"},
+    expected = {"/api/v1/loop-plans/{plan_id}/generations": {"post", "get"},
                 "/api/v1/activity-generations/{generation_id}": {"get"},
                 "/api/v1/activity-generations/{generation_id}/review-content": {"get"},
                 "/api/v1/activity-generations/{generation_id}/review": {"post"},

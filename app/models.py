@@ -309,7 +309,8 @@ class LoopStep(Base):
 class ActivityGeneration(Base):
     __tablename__ = "activity_generations"
     __table_args__ = (
-        UniqueConstraint("loop_plan_id", "generator_version", name="uq_generation_plan_version"),
+        UniqueConstraint("loop_plan_id", "generator_version", "context_variant", name="uq_generation_plan_version_context"),
+        CheckConstraint("context_variant = template_version AND context_variant IN ('positive-sales-v1', 'positive-donations-v1')", name="ck_generation_context"),
         UniqueConstraint("id", "loop_plan_id", name="uq_generation_id_plan"),
         CheckConstraint("review_status IN ('draft', 'approved', 'rejected')", name="ck_generation_status"),
         CheckConstraint("review_scope = 'synthetic_only'", name="ck_generation_scope"),
@@ -322,6 +323,7 @@ class ActivityGeneration(Base):
     loop_plan_id: Mapped[str] = mapped_column(ForeignKey("loop_plans.id"), nullable=False)
     generator_version: Mapped[str] = mapped_column(String(64), nullable=False)
     template_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    context_variant: Mapped[str] = mapped_column(String(64), nullable=False, default="positive-sales-v1")
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(128, collation="utf8mb4_bin"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
@@ -431,3 +433,32 @@ class StateApplication(Base):
     changes: Mapped[list] = mapped_column(JSON, nullable=False)
     formal_certification: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+
+class ActivityCompletion(Base):
+    """Acknowledgment of unscored support, never evidence of proficiency."""
+    __tablename__ = "activity_completions"
+    __table_args__ = ({"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},)
+    activity_id: Mapped[str] = mapped_column(ForeignKey("activities.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utc_now)
+
+
+class ReviewSchedule(Base):
+    __tablename__ = "review_schedules"
+    __table_args__ = (
+        ForeignKeyConstraint(["enrollment_id", "skill_id"],
+            ["learner_skill_states.enrollment_id", "learner_skill_states.skill_id"], name="fk_review_state"),
+        ForeignKeyConstraint(["source_attempt_id", "enrollment_id", "domain_version_id"],
+            ["attempts.id", "attempts.enrollment_id", "attempts.domain_version_id"], name="fk_review_attempt_enrollment_domain"),
+        ForeignKeyConstraint(["skill_id", "domain_version_id"],
+            ["skills.id", "skills.domain_version_id"], name="fk_review_skill_domain"),
+        CheckConstraint("policy_version = 'experimental-review-v1' AND due_at > scheduled_at", name="ck_review_policy_due"),
+        {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"},
+    )
+    enrollment_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    skill_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    domain_version_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    source_attempt_id: Mapped[str] = mapped_column(ForeignKey("attempt_scores.attempt_id"), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    due_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

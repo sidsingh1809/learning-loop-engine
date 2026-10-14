@@ -142,3 +142,11 @@ erDiagram
 - Archive courses and published content rather than deleting records needed for evidence provenance. Retention and erasure must follow the university's approved policy.
 - Store timestamps consistently as UTC. Do not let local server time change schedule calculations.
 - A small prototype can be single-university. A future multi-university deployment requires tenant-scoped keys, indexes, authorization, and isolation tests before onboarding another institution.
+
+## Implemented in migration 0011
+
+- `activity_generations.context_variant`: non-null `VARCHAR(64)`, backfilled to `positive-sales-v1`. Unique `(loop_plan_id, generator_version, context_variant)` replaces the earlier two-column reuse key. A check requires the context to equal the template version and belong to the two supported sales/donations scenarios. Existing payloads, hashes and IDs are preserved.
+- `activity_completions`: one explicit acknowledgment per unscored activity, with activity PK/FK and UTC `created_at`. Authorization, approved-only/unscored-only eligibility and immutability are service invariants. It is participation metadata, never proficiency evidence.
+- `review_schedules`: current reminder keyed by `(enrollment_id, skill_id)`, with domain, source terminal attempt, policy version and UTC scoring/due timestamps. Composite FKs bind it to enrolled state, same-domain skill and attempt/enrollment/domain; the source must also have a score. A check pins `experimental-review-v1` and requires due time after scoring. Whole-task eligibility and the seven-day interval are service invariants. No mastery table or application history is altered by time passing.
+
+New tables retain UTF-8 collation. Enrollment locks serialize acknowledgment and reminder writes with scoring/archival. Schedules commit within score/evidence/state/application transactions and use original score time for stable retries. Read-only history/progress/queue operations never write. Historical reminder backfill happens through explicit existing write synchronization, not the migration or GET. Previous migrations remain unchanged. Downgrade refuses before DDL if acknowledgments, reminders or alternate contexts would be lost; otherwise it restores the earlier uniqueness key. Populated migration preservation and model/schema agreement are checked in disposable MySQL tests.
