@@ -28,7 +28,11 @@ services:
         condition: service_healthy
   api:
     build: .
-    environment: *app_env
+    environment:
+      <<: *app_env
+      OPENAI_GENERATION_ENABLED: ${OPENAI_GENERATION_ENABLED:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-45}
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

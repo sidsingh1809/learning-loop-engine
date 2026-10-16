@@ -229,3 +229,22 @@ Personal terminal/Swagger checks are complete as reported by the developer. The 
 ### Next session
 
 Day 12: add a generation-provider interface and one selected AI provider/model with server-side credentials and explicit prompt versions. Retain the template adapter, frozen plan provenance, validation/review boundaries and continuity behavior. Durable provider jobs, timeouts/retries and generation request keys remain Day 13. Provider/model selection, expert review and university identity inputs remain unresolved.
+
+
+## Day 12 completed — October 16, 2026
+
+Day 12 engineering acceptance and personal terminal/Swagger verification are complete. The developer reported completing all tests on October 16, 2026. Time spent: **5 hours** (user-reported). Individual manual response payloads were not supplied.
+
+The generation-provider interface now supports the existing deterministic template and one OpenAI adapter returning the same `GeneratedSequence` contract. OpenAI uses the fixed model ID `gpt-6-luna` through the Responses API, a server-side `SecretStr` key, explicit enablement and strict JSON output. Templates remain the default. Both paths replay the saved plan, validate content before persistence, save frozen draft activities, require independent instructor review and retain the existing delivery/scoring/continuity boundaries. Provider/model/prompt provenance is stored with each generation. Disabled or missing-key AI fails explicitly without network use or template fallback.
+
+Migration `0012_generation_providers` backfills old generations as templates, preserves their payloads/hashes and adds no new tables. All 21 existing tables retained exact original-column row hashes and counts across the local migration. Disposable populated-migration checks and AI downgrade refusal passed. The API is healthy at the new migration. Credentials remain in the ignored local configuration and are absent from source, API responses and documentation.
+
+**500 tests passed**, no skips, in Python 3.9.21 against MySQL 8.4; final packaged run 26.94 seconds. Coverage includes both contexts/profiles, malformed/incomplete/refused output, changed plan/provenance, sanitized upstream failures, no-write failure boundaries, provider separation, historical prompt compatibility, independent review, learner isolation and offline saved retries.
+
+Two actual OpenAI calls succeeded from retained synthetic plan `a0a269b5-5b49-4463-a5f2-4200f4c5e39f`. The first v1 draft contained an inaccurate claim that the activity cannot update learner state. It was rejected and retained, illustrating the semantic limit of schema validation. Prompt v2 keeps internal workflow and state claims out of learner-facing instructions and uses a separate adapter identity. Its fresh candidate `f5dc3756-2724-404d-9c14-126681c3afc6` returned 201, reused with 200 and was left draft for instructor review at implementation verification. Inspection confirmed the claim is absent. All draft activities were withheld with 404. A disabled new-context request returned 503 with unchanged history; a saved AI candidate remained reusable while disabled. The user's enabled setting was restored afterward.
+
+The live walkthrough added only two generation candidates and six activities. All nineteen other tables, including attempts, evidence, state/application history and reminders, stayed unchanged. Chosen model, prompt sources, candidate IDs/hashes and actual API evidence are recorded in `18-day-12.md` and `verification.md`. No expert/university approval or measured learning-efficacy claim is made.
+
+### Next session
+
+Day 13: durable generation jobs, bounded timeouts/retries and explicit request idempotency. Move provider work outside the current course/plan transaction; preserve validated drafts, review gates, old prompt versions and saved retries. A crash between the paid provider response and database commit can currently cause a second paid call. Prompt evaluation and instructor feedback remain Day 14; university identity, policy calibration and expert review remain unresolved.

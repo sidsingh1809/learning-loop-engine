@@ -33,7 +33,10 @@ def test_review_requires_instructor(client, role_headers, role):
 
 
 @pytest.mark.parametrize("payload", [{"steps": []}, {"provider": "AI"}, {"content": "override"},
-                                      {"review_status": "approved"}, {"score": 1}, {"template_version": "other"}])
+                                      {"review_status": "approved"}, {"score": 1}, {"template_version": "other"},
+                                      {"provider": "openai", "api_key": "client-key"},
+                                      {"provider": "openai", "model": "client-model"},
+                                      {"provider": "openai", "prompt_version": "client-prompt"}])
 def test_clients_cannot_override_generation(client, role_headers, payload):
     app.dependency_overrides[get_session] = lambda: None
     assert client.post(CREATE, headers=role_headers["learner"], json=payload).status_code == 422

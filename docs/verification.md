@@ -1,5 +1,29 @@
 # Verification log
 
+## Day 12 — October 16, 2026
+
+User verification (October 16, 2026): the developer reported completing all Day 12 terminal and Swagger tests. Developer time: **5 hours** (user-reported). Individual manual response payloads were not supplied. The measured results and candidate statuses below describe the implementation verification before this manual walkthrough.
+
+| Check | Measured result |
+|---|---|
+| Full required-runtime suite | **500 passed**, no skips; Python 3.9.21 / MySQL 8.4; final packaged run 26.94 seconds |
+| Migration and readiness | Local head `0012_generation_providers`; API healthy; all 21 pre-existing table counts and original-column row hashes matched immediately before/after migration |
+| Template compatibility | Both contexts and unknown/beginner/experienced profiles preserve the original sequence/hash through the template adapter |
+| Provider contract | Template and OpenAI return `GeneratedSequence`; server-side credentials, fixed model, strict JSON schema and independent pre-persistence validation tested |
+| Failure boundaries | Disabled/missing-key providers never call transport; HTTP authentication/quota/network/timeout/redirect/invalid-response failures are sanitized; invalid candidate/plan/provenance persists no generation or activity |
+| Review and continuity | AI drafts withheld; independent instructor review required; answer keys remain private; history/progress/ownership and offline saved retries verified |
+| Prompt provenance | Separate prompt v1/v2 files and adapter versions; historical v1 review/hash validation remains valid and v2 creates a separate candidate |
+| Migration lifecycle | Fresh/base downgrade, populated earlier migration paths, populated Day 11→12 template preservation and Alembic schema comparison passed; AI records block destructive downgrade before DDL |
+| Actual OpenAI v1 call | `gpt-6-luna` / `programming-sequence-v1` returned a fresh persisted three-step candidate through the running learner API (201); exact retry 200; original plan/state unchanged |
+| Actual OpenAI v2 call | `gpt-6-luna` / `programming-sequence-v2` returned fresh generation `f5dc3756-2724-404d-9c14-126681c3afc6` (201); exact retry 200; three draft activities withheld (404); original plan/state unchanged |
+| Live disabled-provider path | New donations AI request returned explicit 503 with unchanged generation history; the saved sales candidate remained reusable through POST 200 without a new provider call |
+
+The first live v1 candidate, `d2a78206-546e-4c83-a962-a63d3f8a6626`, had content hash `c0e6454eb87b77ec190f3adeefc62652307310fadf754c0a4aacb785ddb47424`. Inspection found a semantic defect in its response instructions: it claimed the activity cannot update learner state, although terminal scoring can. It was rejected through the synthetic instructor API and remains retained with its original content/hash. No draft was delivered. This demonstrates why structured-output correctness and a successful model call do not replace content review.
+
+At implementation verification, the corrected v2 candidate was draft with content hash `5797b5f6e6a72b34b24635739c7e54457c51a4c8a26796e377f99c0eb8e3c13b`. Inspection confirmed the inaccurate claim is absent. The two actual calls added two candidates and six activities; all other nineteen tables retained exact row counts/hashes, including attempts, evidence, learner state and reminders. The provider was restored to the user's enabled configuration, and the API is healthy. Neither candidate was delivered or treated as evidence.
+
+Prompt v2 removes internal workflow/learner-state claims from learner-facing instructions, uses `track-b-openai-v2`, and preserves v1 history. The first full provider run exposed policy-object serialization, which was corrected; migration-test connections were then corrected to use the disposable database. The final suite passes all 500 checks. Expert/university approval, semantic evaluation and learning-effectiveness validation remain outstanding. Socket timeout/response limits are implemented; durable jobs, retries and request idempotency remain Day 13.
+
 ## Day 11 — October 12, 2026
 
 User verification (October 14, 2026): the developer reported completing all Day 11 terminal and Swagger tests. Developer time: **5 hours** (user-reported). The supplied before/after learner-state payloads match exactly for all six skills, including counts, revisions, points, bands, policy versions and timestamps. Other manual test results were not supplied individually.

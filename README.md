@@ -2,13 +2,13 @@
 
 An API-first university learning system, developed in daily, testable increments. The target loop is: identify a learning gap → choose an instructional sequence → deliver activities → collect evidence → update the learner model → choose again.
 
-**Current milestone: Day 11 continuity across sessions.** Implemented: MySQL course lifecycle, immutable published graphs, isolated learners/enrollments, reviewed catalogs, explainable plans, validated template activities, immutable attempts and server/instructor scoring. Scored evidence now updates learner state and records its application atomically; the next plan consumes that state. Replay adds no evidence or state revision. Mastery bands use an explicit provisional synthetic policy, with whole-task and part-task progress reported separately. Saved history/progress now supports resumption, two reviewed contexts provide distinct variants, and experimental seven-day reminders appear separately from mastery.
+**Current milestone: Day 12 shared generation providers and verified OpenAI integration.** Implemented: MySQL course lifecycle, immutable published graphs, isolated learners/enrollments, reviewed catalogs, explainable plans, validated template and AI activities, immutable attempts and server/instructor scoring. Scored evidence now updates learner state and records its application atomically; the next plan consumes that state. Replay adds no evidence or state revision. Mastery bands use an explicit provisional synthetic policy, with whole-task and part-task progress reported separately. Saved history/progress now supports resumption, two reviewed contexts provide distinct variants, and experimental seven-day reminders appear separately from mastery.
 
 ## Start here
 
 1. Read [the scope and unresolved decisions](docs/01-scope.md).
 2. Follow [the daily development plan](docs/04-daily-plan.md). It assumes one developer working 3–6 hours daily, with two hours already spent on Day 1.
-3. Run [the Day 11 walkthrough](docs/17-day-11.md); [Day 10](docs/16-day-10.md) covers the closed loop, [Day 9](docs/15-day-9.md) covers scoring, [Day 8](docs/14-day-8.md) covers generation, [Day 7](docs/13-day-7.md) covers planning, [Day 6](docs/12-day-6.md) covers catalogs, [Day 5](docs/11-day-5.md) covers learners, [Day 4](docs/10-day-4.md) covers publishing, [Day 3](docs/09-day-3.md) covers domain authoring, [Day 2](docs/06-day-2.md) covers course lifecycle and [Day 1](docs/05-day-1.md) covers the foundation.
+3. Run [the Day 12 walkthrough](docs/18-day-12.md); [Day 11](docs/17-day-11.md) covers continuity; [Day 10](docs/16-day-10.md) covers the closed loop, [Day 9](docs/15-day-9.md) covers scoring, [Day 8](docs/14-day-8.md) covers generation, [Day 7](docs/13-day-7.md) covers planning, [Day 6](docs/12-day-6.md) covers catalogs, [Day 5](docs/11-day-5.md) covers learners, [Day 4](docs/10-day-4.md) covers publishing, [Day 3](docs/09-day-3.md) covers domain authoring, [Day 2](docs/06-day-2.md) covers course lifecycle and [Day 1](docs/05-day-1.md) covers the foundation.
 4. Use [the progress log](docs/daily-updates.md) for daily reporting.
 
 ## Run locally
@@ -49,6 +49,7 @@ python3 scripts/demo_day6.py
 .venv/bin/python scripts/demo_day10.py
 .venv/bin/python scripts/demo_day10.py --plan-id d4022c31-de90-4a82-bffa-3f9b9cda8bc9
 
+.venv/bin/python scripts/demo_day12.py
 .venv/bin/python scripts/demo_day11.py
 .venv/bin/python scripts/demo_day11.py --plan-id a0a269b5-5b49-4463-a5f2-4200f4c5e39f
 
@@ -93,6 +94,8 @@ Day 9 adds learner `POST`/`GET /api/v1/activities/{activity_id}/attempts`, learn
 Day 10 adds learner `POST /api/v1/learners/{learner_id}/enrollments/{enrollment_id}/state/applications` with `{}` for historical scores. Scoring and exact attempt/review retries also apply pending scores; next-plan requests synchronize before taking their input snapshot. Attempts expose immutable `state_application` history, and state reads expose separate whole-task and part-task counts, cumulative whole-task points and policy version. `provisional-mastery-v1` marks observed evidence as developing; secure requires at least two whole-task attempts and 80% cumulative whole-task points for that skill. Neither band grants certification. See [Day 10](docs/16-day-10.md).
 
 Day 11 adds learner plan/generation history, generation `/progress`, worked-example `/completion` with `{}`, and an enrollment `/reviews` queue (`due_only=false` includes upcoming). Generation accepts an optional `context_variant`: `positive-sales-v1` or `positive-donations-v1`. Each context remains immutable and requires its own review. `experimental-review-v1` schedules seven-day reminders from whole-task scores; elapsed time and retries never reset mastery or postpone review. See [Day 11](docs/17-day-11.md).
+
+Day 12 adds a common template/OpenAI generation contract. Send `{"provider":"openai"}` to the existing generation POST to use server-configured `gpt-6-luna` with prompt `programming-sequence-v2`. Templates remain the default. AI drafts use the same validation and instructor review gate; provider/model/prompt provenance is persisted. Disabled or unconfigured OpenAI returns an explicit 503, with no fallback. See [Day 12](docs/18-day-12.md) for key setup, live acceptance and synchronous execution limits.
 
 ## Project map
 

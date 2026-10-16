@@ -13,6 +13,7 @@ ContextVariant = Literal["positive-sales-v1", "positive-donations-v1"]
 
 
 class GenerationCreate(StrictInput):
+    provider: Literal["template", "openai"] = "template"
     context_variant: ContextVariant = "positive-sales-v1"
 
 
@@ -106,7 +107,7 @@ class GeneratedStep(StrictInput):
 
 
 class GeneratedSequence(StrictInput):
-    generator_version: Literal["track-b-template-v1"]
+    generator_version: Literal["track-b-template-v1", "track-b-openai-v1", "track-b-openai-v2"]
     template_version: ContextVariant
     plan_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
     learning_science_policy_id: UUID
@@ -130,6 +131,9 @@ class GenerationRead(TimestampRead):
     generator_version: str
     template_version: str
     context_variant: ContextVariant
+    provider: Literal["template", "openai"]
+    model: Optional[str]
+    prompt_version: str
     content_hash: str
     review_status: ReviewStatus
     review_scope: Literal["synthetic_only"]

@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -13,6 +14,10 @@ class Settings(BaseSettings):
     database_url: SecretStr
     api_key: SecretStr
     dev_principals: list[DevelopmentCredential] = Field(default_factory=list, repr=False)
+
+    openai_generation_enabled: bool = False
+    openai_api_key: Optional[SecretStr] = Field(default=None, repr=False)
+    openai_timeout_seconds: int = Field(default=45, ge=1, le=60)
 
     @model_validator(mode="after")
     def unique_development_credentials(self):

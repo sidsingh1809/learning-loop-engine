@@ -7,9 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.catalog_schemas import ReviewInput
 from app.database import get_session
+from app.config import get_settings
+from app.generation_providers import (get_generation_provider, ProviderUnavailable, PROVIDER_SPECS)
 from app.generation_schemas import (DeliveredActivity, GenerationCreate,
                                     GenerationRead, ReviewContentRead)
-from app.generator import GENERATOR_VERSION, GenerationError, build_sequence, content_hash, learner_step, validate_output
+from app.generator import GenerationError, build_sequence, content_hash, learner_step, validate_output
 from app.identity import Principal, Role
 from app.models import Activity, ActivityGeneration, Course, Enrollment, Learner, LoopPlan, LoopStep, utc_now
 from app.plans import representation
@@ -17,7 +19,7 @@ from app.security import require_api_key, require_learner
 
 router = APIRouter(tags=["activities"], responses={401: {"description": "Missing or invalid credentials"},
     403: {"description": "Required role or review authority denied"}, 404: {"description": "Resource not found or not accessible"},
-    409: {"description": "Unavailable template, invalid output or conflicting review"}, 503: {"description": "Database operation unavailable"}})
+    409: {"description": "Unavailable template, invalid output or conflicting review"}, 503: {"description": "Database or generation provider unavailable"}})
 
 
 def require_instructor(principal: Principal = Depends(require_api_key)):
@@ -53,6 +55,10 @@ def saved_sequence(generation, rows, plan_read):
                  "safety_policy_id": plan_read.safety_policy_id,
                  "estimated_minutes": plan_read.decision.estimated_minutes, "review_scope": generation.review_scope,
                  "steps": [r.payload for r in rows]}
+    spec = PROVIDER_SPECS.get(generation.generator_version)
+    if spec is None or (generation.provider, generation.model, generation.prompt_version, generation.generator_version) != (
+            spec.provider, spec.model, spec.prompt_version, spec.generator_version):
+        raise GenerationError("Stored generation provider provenance is invalid")
     sequence = validate_output(candidate, plan_read.input_snapshot, plan_read.decision)
     if generation.context_variant != sequence.template_version:
         raise GenerationError("Stored context differs from the frozen sequence")
@@ -62,15 +68,17 @@ def saved_sequence(generation, rows, plan_read):
 
 
 @router.post("/loop-plans/{plan_id}/generations", response_model=GenerationRead, status_code=201,
-             responses={200: {"model": GenerationRead, "description": "Existing template generation"}})
+             responses={200: {"model": GenerationRead, "description": "Existing frozen generation"}})
 def generate(plan_id: UUID, payload: GenerationCreate, response: Response,
              principal: Principal = Depends(require_learner), session: Session = Depends(get_session)):
     plan = owned_plan(plan_id, principal, session)
     enrollment = session.get(Enrollment, plan.enrollment_id)
     course = session.scalar(select(Course).where(Course.id == enrollment.course_id).with_for_update())
     plan = session.scalar(select(LoopPlan).where(LoopPlan.id == plan.id).with_for_update())
+    provider = get_generation_provider(payload.provider, get_settings(), template_builder=build_sequence)
+    spec = provider.spec
     generation = session.scalar(select(ActivityGeneration).where(ActivityGeneration.loop_plan_id == plan.id,
-                                ActivityGeneration.generator_version == GENERATOR_VERSION,
+                                ActivityGeneration.generator_version == spec.generator_version,
                                 ActivityGeneration.context_variant == payload.context_variant).with_for_update())
     if generation is not None:
         response.status_code = 200
@@ -80,14 +88,19 @@ def generate(plan_id: UUID, payload: GenerationCreate, response: Response,
         steps = session.scalars(select(LoopStep).where(LoopStep.loop_plan_id == plan.id).order_by(LoopStep.position).with_for_update()).all()
         saved = representation(plan, steps)
         try:
-            candidate = build_sequence(saved.input_snapshot, saved.decision, payload.context_variant)
+            candidate = provider.generate(saved.input_snapshot, saved.decision, payload.context_variant)
             # A distinct boundary validates even a buggy/replaced adapter before persistence.
             candidate = validate_output(candidate, saved.input_snapshot, saved.decision)
+            if candidate.generator_version != spec.generator_version:
+                raise GenerationError("Generated provider version differs from the selected adapter")
             if candidate.template_version != payload.context_variant:
                 raise GenerationError("Generated context differs from the requested variant")
+        except ProviderUnavailable as exc:
+            raise HTTPException(503, str(exc)) from None
         except GenerationError as exc:
             raise HTTPException(409, str(exc)) from exc
-        generation = ActivityGeneration(loop_plan_id=plan.id, generator_version=GENERATOR_VERSION,
+        generation = ActivityGeneration(loop_plan_id=plan.id, generator_version=spec.generator_version,
+            provider=spec.provider, model=spec.model, prompt_version=spec.prompt_version,
             template_version=payload.context_variant, context_variant=payload.context_variant, content_hash=content_hash(candidate), created_by=principal.subject,
             activities=[Activity(loop_plan_id=plan.id, position=s.position, payload=s.model_dump(mode="json")) for s in candidate.steps])
         session.add(generation)

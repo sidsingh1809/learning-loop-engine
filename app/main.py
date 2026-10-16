@@ -26,8 +26,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Learning Loop Engine API",
-    version="0.11.0",
-    description="Day 11 continuity, context variants and experimental review reminders.",
+    version="0.12.0",
+    description="Day 12 shared generation providers, pinned AI model and prompt versions.",
     lifespan=lifespan,
 )
 app.include_router(courses_router, prefix="/api/v1")
@@ -67,7 +67,7 @@ def ready(session: Session = Depends(get_session)):
     session.execute(text("SELECT activity_variant_id, component, rationale FROM component_activity_mappings LIMIT 1"))
     session.execute(text("SELECT id, enrollment_id, input_fingerprint, input_snapshot, decision FROM loop_plans LIMIT 1"))
     session.execute(text("SELECT loop_plan_id, position, activity_variant_id, components FROM loop_steps LIMIT 1"))
-    session.execute(text("SELECT id, loop_plan_id, generator_version, context_variant, content_hash, review_status FROM activity_generations LIMIT 1"))
+    session.execute(text("SELECT id, loop_plan_id, generator_version, provider, model, prompt_version, context_variant, content_hash, review_status FROM activity_generations LIMIT 1"))
     session.execute(text("SELECT id, generation_id, loop_plan_id, position, payload FROM activities LIMIT 1"))
     session.execute(text("SELECT id, activity_id, enrollment_id, response, request_hash FROM attempts LIMIT 1"))
     session.execute(text("SELECT attempt_id, scorer_version, rubric_version, reviewed_by FROM attempt_scores LIMIT 1"))
